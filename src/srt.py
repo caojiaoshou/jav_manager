@@ -1,7 +1,7 @@
 import pickle
 from datetime import datetime, timezone
 
-with open('translation.pickle', 'rb') as f:
+with open('../translation.pickle', 'rb') as f:
     result = pickle.load(f)
 
 
@@ -25,5 +25,5 @@ for segment in result['segments']:
 
     lines.append('\n')
 
-with open('fuck.srt', 'w', encoding='utf-8') as f:
+with open('../fuck.srt', 'w', encoding='utf-8') as f:
     f.write('\n'.join(lines))

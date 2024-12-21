@@ -1,9 +1,10 @@
-import pathlib
 import re
 
 from transformers import pipeline
 
-download_dir = (pathlib.Path(__file__).parent / 'model' / 'transformer').absolute().__str__()
+from src import MODEL_DIR
+
+download_dir = (MODEL_DIR / 'transformer').absolute().__str__()
 
 pipe = pipeline(model="larryvrh/mt5-translation-ja_zh", model_kwargs={'cache_dir': download_dir})
 
@@ -31,6 +32,3 @@ def translate_article(article):
             continue
         paragraphs[i] = translate_paragraph(p)
     return ''.join(paragraphs)
-
-
-

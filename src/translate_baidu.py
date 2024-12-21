@@ -5,13 +5,13 @@ from uuid import uuid4
 
 import httpx
 
-with open('result.pickle', 'rb') as f:
+with open('../result.pickle', 'rb') as f:
     result = pickle.load(f)
 
 for segment in result['segments']:
     print(segment['no_speech_prob'])
     print(segment['text'])
-    if segment['no_speech_prob'] <=0.55:
+    if segment['no_speech_prob'] <= 0.55:
         while True:
             text = segment['text']
             salt = uuid4().hex
@@ -43,5 +43,5 @@ for segment in result['segments']:
     else:
         segment['translation'] = segment['text']
 
-with open('translation.pickle', 'wb') as f:
+with open('../translation.pickle', 'wb') as f:
     pickle.dump(result, f)

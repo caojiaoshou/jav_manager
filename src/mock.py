@@ -1,16 +1,14 @@
 import datetime
-import hashlib
 import pathlib
-import time
-from uuid import uuid4
 
 import av
-import httpx
 import numpy as np
 import torch
 import whisper
 from silero_vad import load_silero_vad, get_speech_timestamps
+
 from translate_v2 import translate_sentence
+
 p = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
 vad_model = load_silero_vad(onnx=True)
 
@@ -96,6 +94,8 @@ map_list = []
 #             time.sleep(0.2)
 for (start, end, original_text) in transcript_list:
     map_list.append((start, end, original_text, translate_sentence(original_text)))
+
+
 def format_time(time_: float) -> str:
     dt = datetime.datetime.fromtimestamp(time_, datetime.timezone.utc)
     return dt.strftime('%H:%M:%S,%f')
@@ -117,5 +117,5 @@ for id_, (start, end, original_text, translate_text) in enumerate(map_list):
 
     lines.append('\n')
 
-with open('fuck.srt', 'w', encoding='utf-8') as f:
+with open('../fuck.srt', 'w', encoding='utf-8') as f:
     f.write('\n'.join(lines))
