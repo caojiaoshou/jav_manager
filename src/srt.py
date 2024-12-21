@@ -1,29 +1,29 @@
-import pickle
-from datetime import datetime, timezone
+import datetime
+import typing as t
 
-with open('../translation.pickle', 'rb') as f:
-    result = pickle.load(f)
+from src.config import Middleware
 
 
-def format_time(time: float) -> str:
-    dt = datetime.fromtimestamp(time, timezone.utc)
+def _format_time(time_: float) -> str:
+    dt = datetime.datetime.fromtimestamp(time_, datetime.timezone.utc)
     return dt.strftime('%H:%M:%S,%f')
 
 
-lines = []
-for segment in result['segments']:
-    lines.append(str(segment['id']))
+def create_srt_content(middleware_seq: t.Sequence[Middleware]) -> str:
+    lines = []
+    for id_, (start, end, original_text, translate_text) in enumerate(middleware_seq):
+        lines.append(str(id_))
 
-    start = format_time(segment['start'])
+        start = _format_time(start)
 
-    end = format_time(segment['end'])
+        end = _format_time(end)
 
-    time_line = f'{start} --> {end}'
-    lines.append(time_line)
+        time_line = f'{start} --> {end}'
+        lines.append(time_line)
 
-    lines.append(segment['translation'])
+        lines.append(translate_text)
+        lines.append(original_text)
 
-    lines.append('\n')
+        lines.append('\n')
 
-with open('../fuck.srt', 'w', encoding='utf-8') as f:
-    f.write('\n'.join(lines))
+    return '\n'.join(lines)
