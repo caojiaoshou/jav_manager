@@ -26,7 +26,8 @@ def create_transcribe(wav_array: np.ndarray, heuristic_cut: list[Middleware] | N
         end_at = speech_timestamp.end_at + 0.1
 
         # 除32786参照whisper的load_audio来的.不知道是为什么
-        audio = wav_array[:, int(start_at * 16000): int(end_at * 16000)].flatten() / 32786
+        # 牛逼千问直接发现了这个typo的bug. 32768打成32786
+        audio = wav_array[:, int(start_at * 16000): int(end_at * 16000)].flatten() / 32768.0
         result = asr_model.transcribe(audio, language='ja')
         print(result)
         if transcribe_text := result['text']:
