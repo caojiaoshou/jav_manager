@@ -4,8 +4,6 @@ from pathlib import Path
 import av
 import numpy as np
 
-from src.scene import FrameRecord
-
 
 def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) -> np.ndarray:
     with av.open(file_path) as container:
@@ -25,6 +23,11 @@ def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) 
 
     samples_np = np.hstack(samples).astype(np.float32)
     return samples_np
+
+
+class FrameRecord(t.NamedTuple):
+    sec_delta: float
+    bgr_array: np.ndarray
 
 
 def iter_frame_bgr24(video_path: Path) -> t.Generator[FrameRecord, None | bool, None]:

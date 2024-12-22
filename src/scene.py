@@ -3,14 +3,9 @@ import typing as t
 import cv2
 import numpy as np
 
-from src.loader import iter_frame_bgr24
+from src.loader import iter_frame_bgr24, FrameRecord
 
 p_for_test = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
-
-
-class FrameRecord(t.NamedTuple):
-    sec_delta: float
-    bgr_array: np.ndarray
 
 
 def serial_image(bgr_array: np.ndarray) -> np.ndarray:

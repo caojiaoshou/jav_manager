@@ -1,10 +1,12 @@
+import pathlib
+
 from src.asr import create_transcribe
 from src.loader import get_audio_samples_as_float32_array
 from src.srt import create_srt_content
 from src.translate_mt5 import translate_list
 from src.vad import create_vad
 
-p_for_test = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
+p_for_test = 'E:\L6\FC2PPV-2440091\FC2PPV-2440091-1.mp4'
 
 # 文件IO
 audio_array = get_audio_samples_as_float32_array(p_for_test)
@@ -21,4 +23,6 @@ map_list = [(*raw[0:3], trans) for raw, trans in zip(transcribe, translate_list(
 
 # 输出字幕
 srt_content = create_srt_content(map_list)
-print(srt_content)
+
+srt_path = pathlib.Path(p_for_test).with_suffix('.srt')
+srt_path.write_text(srt_content, encoding='utf-8')
