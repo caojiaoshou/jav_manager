@@ -1,4 +1,5 @@
 import gc
+import traceback
 
 import numpy as np
 import torch
@@ -15,6 +16,8 @@ def create_transcribe(wav_array: np.ndarray, heuristic_cut: list[Middleware] | N
     :param heuristic_cut:
     :return:
     """
+    # print('call call call')
+    # traceback.print_stack()
     asr_model = whisper.load_model('large-v3', download_root=MODEL_DIR.absolute().__str__())
 
     transcript_list = []
