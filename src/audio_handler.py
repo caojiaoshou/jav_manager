@@ -31,6 +31,6 @@ def full_work(p_todo: pathlib.Path):
 
 
 if __name__ == '__main__':
-    ls = pathlib.Path(r'E:\L6\FC2-PPV-3259498').glob('*.mp4')
+    ls = pathlib.Path(r'E:\L6\FC2-PPV-3939370').glob('*.mp4')
     for p in ls:
         full_work(p)
