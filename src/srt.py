@@ -11,7 +11,7 @@ def _format_time(time_: float) -> str:
 
 def create_srt_content(middleware_seq: t.Sequence[Middleware]) -> str:
     lines = []
-    for id_, (start, end, original_text, translate_text) in enumerate(middleware_seq):
+    for id_, (start, end, original_text, translate_text) in enumerate(middleware_seq, start=1):
         lines.append(str(id_))
 
         start = _format_time(start)
