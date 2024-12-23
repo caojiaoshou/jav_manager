@@ -27,6 +27,7 @@ def translate_list(list_to_translate: typing.Iterable[str]) -> list[str]:
     result_list = []
     # 不要用dataset的方式.数据量上去后实测会卡死!! 15.1GB VRAM + 94%GPU 已然冒烟
     for text in pad_request:
+        text = ''.join(pipe.tokenizer.tokenize(text)[:int(128*0.9)])
         result = pipe(text)
         print(result)
         result_list.extend(result)
