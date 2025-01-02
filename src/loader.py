@@ -34,22 +34,15 @@ class FrameRecord(t.NamedTuple):
 
 def iter_frame_bgr24(video_path: Path) -> t.Generator[FrameRecord, None | bool, None]:
     with open(video_path, mode='rb') as io:
-        try:
+        with av.open(io) as container:
             # 防止文件损坏导致FFMPEG无法读取
-            container = av.open(io)
-
             second_pass = 0
 
             for packet in container.demux(video=0):
                 second_pass += packet.duration * packet.time_base
                 if packet.is_keyframe:
                     if packet_frame_list := packet.decode():
-                        stop_trigger = yield FrameRecord(
+                        yield FrameRecord(
                             float(second_pass),
                             packet_frame_list[0].to_ndarray(format='bgr24')
                         )
-                        if stop_trigger:
-                            break
-            container.close()
-        finally:
-            ...

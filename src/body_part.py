@@ -1,9 +1,13 @@
+import statistics
+import time
 import typing as t
 from pathlib import Path
 
-import av
+import cv2
 import numpy as np
 from nudenet import NudeDetector
+
+from loader import iter_frame_bgr24
 
 
 class _Record(t.NamedTuple):
@@ -17,60 +21,41 @@ class _Record(t.NamedTuple):
 nude_detector = NudeDetector()
 
 target_class = [
-    # "FEMALE_GENITALIA_COVERED",
     "FACE_FEMALE",
     "BUTTOCKS_EXPOSED",
     "FEMALE_BREAST_EXPOSED",
     "FEMALE_GENITALIA_EXPOSED",
-    # "MALE_BREAST_EXPOSED",
-    # "ANUS_EXPOSED",
-    # "FEET_EXPOSED",
-    # "BELLY_COVERED",
-    # "FEET_COVERED",
-    # "ARMPITS_COVERED",
-    # "ARMPITS_EXPOSED",
-    # "FACE_MALE",
-    # "BELLY_EXPOSED",
-    # "MALE_GENITALIA_EXPOSED",
-    # "ANUS_COVERED",
-    # "FEMALE_BREAST_COVERED",
-    # "BUTTOCKS_COVERED",
+    "MALE_GENITALIA_EXPOSED",
 ]
 
 p_for_test = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
 
 
 def detect_video_preview(video_path: Path) -> np.ndarray:
+    detect_cost_list = []
+    decode_cost_list = []
     target_mapper = {k: _Record(0, None) for k in target_class}
-    with open(video_path, mode='rb') as io:
+    frame_generator = iter_frame_bgr24(video_path)
+    while not all(target_mapper.values()):
         try:
-            # 防止文件损坏导致FFMPEG无法读取
-            container = av.open(io)
-
-            second_pass = 0
-
-            for packet in container.demux(video=0):
-                if packet.is_keyframe:
-                    for frame in packet.decode():
-                        image = frame.to_ndarray(format='bgr24')
-                        detect_result_list = nude_detector.detect(image)
-                        for result in detect_result_list:
-                            if result['class'] not in target_mapper:
-                                continue
-                            elif result['score'] < 0.75:
-                                continue
-                            else:
-                                if target_mapper[result['class']].score < result['score']:
-                                    target_mapper[result['class']] = _Record(result['score'], image)
-
-                if all(target_mapper.values()):
-                    break
-
-                second_pass += packet.duration * packet.time_base
-            container.close()
-        except Exception:
-            return
-
+            decode_start_at = time.time()
+            frame_record = next(frame_generator)
+            decode_cost_list.append(time.time() - decode_start_at)
+        except StopIteration:
+            break
+        detect_start_at = time.time()
+        detect_result_list = nude_detector.detect(frame_record.bgr_array)
+        detect_cost_list.append(time.time() - detect_start_at)
+        for result in detect_result_list:
+            if result['class'] not in target_mapper:
+                continue
+            elif result['score'] < 0.75:
+                continue
+            else:
+                if target_mapper[result['class']].score < result['score']:
+                    target_mapper[result['class']] = _Record(result['score'], frame_record.bgr_array)
+    print(f'{statistics.mean(detect_cost_list)=}, {statistics.stdev(detect_cost_list)=}, {len(detect_cost_list)=}')
+    print(f'{statistics.mean(decode_cost_list)=}, {statistics.stdev(decode_cost_list)=},{len(decode_cost_list)=}')
     to_stack_list = [r.img for r in target_mapper.values() if r.img is not None]
     if to_stack_list:
         return np.vstack(to_stack_list)
@@ -79,4 +64,5 @@ def detect_video_preview(video_path: Path) -> np.ndarray:
 
 
 if __name__ == '__main__':
-    detect_video_preview(p_for_test)
+    cv2.imshow('', cv2.resize(detect_video_preview(p_for_test), (640, 480)))
+    cv2.waitKey(0)
