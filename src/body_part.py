@@ -42,14 +42,6 @@ p_for_test = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1
 
 def detect_video_preview(video_path: Path) -> np.ndarray:
     target_mapper = {k: _Record(0, None) for k in target_class}
-    # breast_image = None
-    # breast_score = 0
-    #
-    # pussy_image = None
-    # pussy_score = 0
-    #
-    # face_image = None
-    # face_score = 0
     with open(video_path, mode='rb') as io:
         try:
             # 防止文件损坏导致FFMPEG无法读取
@@ -70,20 +62,10 @@ def detect_video_preview(video_path: Path) -> np.ndarray:
                             else:
                                 if target_mapper[result['class']].score < result['score']:
                                     target_mapper[result['class']] = _Record(result['score'], image)
-                            # if result['class'] == "FACE_FEMALE" and result['score'] > face_score:
-                            #     face_score = result['score']
-                            #     face_image = image
-                            # if result['class'] == "FEMALE_BREAST_EXPOSED" and result['score'] > breast_score:
-                            #     breast_score = result['score']
-                            #     breast_image = image
-                            # if result['class'] == "FEMALE_GENITALIA_EXPOSED" and result['score'] > pussy_score:
-                            #     pussy_score = result['score']
-                            #     pussy_image = image
 
                 if all(target_mapper.values()):
                     break
-                # if pussy_image is not None and breast_image is not None and face_image is not None:
-                #     break
+
                 second_pass += packet.duration * packet.time_base
             container.close()
         except Exception:

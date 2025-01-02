@@ -14,13 +14,15 @@ def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) 
 
         samples = []
         for packet in container.demux(audio_stream):
-            for frame in packet.decode():
-                # Resample the frame to the desired sample rate and format
-                frame = resampler.resample(frame)
-                # Convert the frame to a NumPy array
-                array = frame[0].to_ndarray()
-                samples.append(array)
-
+            try:
+                for frame in packet.decode():
+                    # Resample the frame to the desired sample rate and format
+                    frame = resampler.resample(frame)
+                    # Convert the frame to a NumPy array
+                    array = frame[0].to_ndarray()
+                    samples.append(array)
+            except Exception as e:
+                break
     samples_np = np.hstack(samples).astype(np.float32)
     return samples_np
 

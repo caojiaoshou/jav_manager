@@ -5,7 +5,7 @@ import numpy as np
 
 from src.loader import iter_frame_bgr24, FrameRecord
 
-p_for_test = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
+
 
 
 def serial_image(bgr_array: np.ndarray) -> np.ndarray:
@@ -47,6 +47,7 @@ def create_frame_diff(frame_seq: t.Sequence[FrameRecord]) -> list[FrameDiffRecor
 
 
 if __name__ == '__main__':
+    p_for_test = 'E:\L6\FC2-PPV-1962384\hhd800.com@FC2-PPV-1962384.mp4'
     frame_list = list(iter_frame_bgr24(p_for_test))
     scene_ = create_frame_diff(frame_list)
 
