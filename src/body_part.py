@@ -1,7 +1,6 @@
 import dataclasses
 import functools
 import statistics
-import time
 import typing as t
 from pathlib import Path
 
@@ -77,23 +76,23 @@ def calculate_enclosing_rectangle(bbox1, bbox2) -> tuple[float, float, float, fl
     )
 
 
-@dataclasses.dataclass
-class _Detection:
+@dataclasses.dataclass(frozen=True)
+class DetectionResult:
     confidence: float = 0
     bbox: t.Tuple[int, int, int, int] | None = None
 
 
 @dataclasses.dataclass
-class _RecordV2:
-    face: _Detection = dataclasses.field(default_factory=_Detection)
-    butt: _Detection = dataclasses.field(default_factory=_Detection)
-    breast: _Detection = dataclasses.field(default_factory=_Detection)
-    pussy: _Detection = dataclasses.field(default_factory=_Detection)
-    penis: _Detection = dataclasses.field(default_factory=_Detection)
-    feet: _Detection = dataclasses.field(default_factory=_Detection)
+class BodyPartDetectionCollection:
+    face: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    butt: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    breast: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    pussy: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    penis: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    feet: DetectionResult = dataclasses.field(default_factory=DetectionResult)
 
     @staticmethod
-    def _create_overlap(dt_1: _Detection, dt_2: _Detection) -> _Detection:
+    def _calculate_overlap(dt_1: DetectionResult, dt_2: DetectionResult) -> DetectionResult:
         pct = 0
         bbox_target = None
         if dt_1.confidence and dt_2.confidence:
@@ -102,25 +101,25 @@ class _RecordV2:
                 pct = statistics.geometric_mean([dt_1.confidence, dt_2.confidence, overlap_ratio])
                 bbox_target = calculate_enclosing_rectangle(dt_1.bbox, dt_2.bbox)
 
-        return _Detection(pct, bbox_target)
+        return DetectionResult(pct, bbox_target)
 
     @functools.cached_property
-    def oral_penetration(self) -> _Detection:
-        return self._create_overlap(self.face, self.penis)
+    def oral_penetration(self) -> DetectionResult:
+        return self._calculate_overlap(self.face, self.penis)
 
     @functools.cached_property
-    def vaginal_penetration(self) -> _Detection:
-        return self._create_overlap(self.pussy, self.penis)
+    def vaginal_penetration(self) -> DetectionResult:
+        return self._calculate_overlap(self.pussy, self.penis)
 
 
 nude_detector = NudeDetector()
 
 
-def frame_image_to_detection(frame: np.ndarray) -> _RecordV2:
-    _record = _RecordV2()
+def process_frame_for_detections(frame: np.ndarray) -> BodyPartDetectionCollection:
+    _record = BodyPartDetectionCollection()
     detect_result_list = nude_detector.detect(frame)
     for detect_result in detect_result_list:
-        detection = _Detection(detect_result['score'], tuple(detect_result['box']))
+        detection = DetectionResult(detect_result['score'], tuple(detect_result['box']))
         match detect_result['class']:
             case 'FACE_FEMALE':
                 _record.face = detection
@@ -137,31 +136,24 @@ def frame_image_to_detection(frame: np.ndarray) -> _RecordV2:
     return _record
 
 
-def detect_video_preview(video_path: Path) -> list[tuple[FrameRecord, _RecordV2]]:
-    detect_cost_list = []
-    decode_cost_list = []
-
+def process_video_for_detections(video_path: Path) -> list[tuple[FrameRecord, BodyPartDetectionCollection]]:
     res_list = []
     frame_generator = iter_frame_bgr24(video_path)
     while True:
         try:
-            decode_start_at = time.time()
             frame_record = next(frame_generator)
-            decode_cost_list.append(time.time() - decode_start_at)
         except StopIteration:
             break
-        detect_start_at = time.time()
-        detect_record = frame_image_to_detection(frame_record.bgr_array)
+
+        detect_record = process_frame_for_detections(frame_record.bgr_array)
         res_list.append((frame_record, detect_record))
-        detect_cost_list.append(time.time() - detect_start_at)
-    print(f'{statistics.mean(detect_cost_list)=}, {statistics.stdev(detect_cost_list)=}, {len(detect_cost_list)=}')
-    print(f'{statistics.mean(decode_cost_list)=}, {statistics.stdev(decode_cost_list)=},{len(decode_cost_list)=}')
+
     return res_list
 
 
-if __name__ == '__main__':
-    p_for_test = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
-    result = detect_video_preview(p_for_test)
+def _test():
+    test_video_path = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
+    result = process_video_for_detections(test_video_path)
     result_for_oral_sorted = sorted(result, key=lambda x: x[1].oral_penetration.confidence, reverse=True)
     for result_for_oral in result_for_oral_sorted[0:5]:
         cv2.imshow('', result_for_oral[0].bgr_array)
@@ -170,3 +162,7 @@ if __name__ == '__main__':
     for result_for_vaginal in result_for_vaginal_sorted[0:5]:
         cv2.imshow('', result_for_vaginal[0].bgr_array)
         cv2.waitKey(0)
+
+
+if __name__ == '__main__':
+    _test()
