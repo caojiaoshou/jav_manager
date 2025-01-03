@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from nudenet import NudeDetector
 
-from loader import iter_frame_bgr24, FrameRecord
+from loader import iter_keyframe_bgr24, FrameRecord
 
 
 def calculate_overlap_ratio(bbox1, bbox2) -> float:
@@ -138,7 +138,7 @@ def process_frame_for_detections(frame: np.ndarray) -> BodyPartDetectionCollecti
 
 def process_video_for_detections(video_path: Path) -> list[tuple[FrameRecord, BodyPartDetectionCollection]]:
     res_list = []
-    frame_generator = iter_frame_bgr24(video_path)
+    frame_generator = iter_keyframe_bgr24(video_path)
     while True:
         try:
             frame_record = next(frame_generator)
