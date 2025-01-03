@@ -81,6 +81,10 @@ class DetectionResult:
     confidence: float = 0
     bbox: t.Tuple[int, int, int, int] | None = None
 
+    @property
+    def confidence_en5(self) -> float:
+        return self.confidence + 1e-5
+
 
 @dataclasses.dataclass
 class BodyPartDetectionCollection:
@@ -90,6 +94,9 @@ class BodyPartDetectionCollection:
     pussy: DetectionResult = dataclasses.field(default_factory=DetectionResult)
     penis: DetectionResult = dataclasses.field(default_factory=DetectionResult)
     feet: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    bar: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    leg: DetectionResult = dataclasses.field(default_factory=DetectionResult)
+    pans: DetectionResult = dataclasses.field(default_factory=DetectionResult)
 
     @staticmethod
     def _calculate_overlap(dt_1: DetectionResult, dt_2: DetectionResult) -> DetectionResult:
@@ -110,6 +117,24 @@ class BodyPartDetectionCollection:
     @functools.cached_property
     def vaginal_penetration(self) -> DetectionResult:
         return self._calculate_overlap(self.pussy, self.penis)
+
+    @functools.cached_property
+    def upper_body(self) -> float:
+        return statistics.geometric_mean(
+            (
+                self.face.confidence_en5,
+                max(self.bar.confidence_en5, self.breast.confidence_en5)
+            )
+        )
+
+    @functools.cached_property
+    def lower_body(self) -> float:
+        return statistics.geometric_mean(
+            (
+                self.leg.confidence_en5,
+                max(self.butt.confidence_en5, self.pans.confidence_en5)
+            )
+        )
 
 
 nude_detector = NudeDetector()
@@ -133,6 +158,12 @@ def process_frame_for_detections(frame: np.ndarray) -> BodyPartDetectionCollecti
                 _record.breast = detection
             case 'FEET_EXPOSED':
                 _record.feet = detection
+            case 'FEMALE_BREAST_COVERED':
+                _record.bar = detection
+            case 'FEET_EXPOSED':
+                _record.leg = detection
+            case 'BUTTOCKS_COVERED':
+                _record.pans = detection
     return _record
 
 
