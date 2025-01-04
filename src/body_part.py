@@ -95,6 +95,13 @@ class DetectionResult:
     def confidence_en5(self) -> float:
         return self.confidence + 1e-5
 
+    @property
+    def box_size(self) -> int:
+        if self.bbox is None:
+            return 0
+        else:
+            return self.bbox[2] * self.bbox[3]
+
 
 @dataclasses.dataclass
 class BodyPartDetectionCollection:

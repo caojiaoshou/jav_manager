@@ -1,6 +1,6 @@
 import pathlib
 
-from src.body_part import process_frame_for_detections, DetectionResult
+from src.body_part import process_frame_for_detections, BodyPartDetectionCollection
 from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, calculate_frame_ts, extract_frame_ts, \
     FrameRecord
 from src.scene import create_frame_diff, FrameDiffRecord
@@ -16,7 +16,7 @@ def create_video_website_style_webm_preview(p: pathlib.Path) -> bytes:
 
     diff_list = create_frame_diff(keyframe_record_list)
 
-    composite_list: list[tuple[FrameRecord, DetectionResult, FrameDiffRecord]] = [
+    composite_list: list[tuple[FrameRecord, BodyPartDetectionCollection, FrameDiffRecord]] = [
         (i, j, k)
         for i, j, k in zip(keyframe_record_list[1:], keyframe_detection_list[1:], diff_list)
     ]
@@ -46,7 +46,9 @@ def create_video_website_style_webm_preview(p: pathlib.Path) -> bytes:
     for part in slicers:
         images.extend(extract_frame_ts(p, part))
 
-    return pack_for_360p_webm(images)
+    preview_video = pack_for_360p_webm(images)
+
+    return preview_video
 
 
 if __name__ == '__main__':
