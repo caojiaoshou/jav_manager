@@ -4,3 +4,4 @@ model
 *.pickle
 *.srt
 sample
+gui_dist
