@@ -3,6 +3,7 @@ import typing as t
 import cv2
 import numpy as np
 
+from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 from src.loader import iter_keyframe_bgr24, FrameRecord
 
 
@@ -45,12 +46,14 @@ def create_frame_diff(frame_seq: t.Sequence[FrameRecord]) -> list[FrameDiffRecor
 
 
 if __name__ == '__main__':
-    p_for_test = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
-    frame_list = list(iter_keyframe_bgr24(p_for_test))
+    frame_list = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
     scene_ = create_frame_diff(frame_list)
 
     for seq_index, iqr, mm in scene_:
         if iqr >= 1:
             rp = frame_list[seq_index - 1]
             cp = frame_list[seq_index]
-            cv2.imwrite(f'../sample/{cp.start_at}_{iqr}.jpg', np.vstack([rp.bgr_array, cp.bgr_array]))
+            cv2.imwrite(
+                (TEMP_STORAGE / f'{cp.start_at}_{iqr}.jpg').absolute().__str__(),
+                np.vstack([rp.bgr_array, cp.bgr_array])
+            )

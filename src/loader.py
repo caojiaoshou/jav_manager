@@ -6,6 +6,8 @@ import av
 import cv2
 import numpy as np
 
+from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
+
 
 def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) -> np.ndarray:
     with av.open(file_path) as container:
@@ -165,10 +167,8 @@ def pack_for_360p_webm(frame_record_list: list[FrameRecord]) -> bytes:
 
 
 if __name__ == '__main__':
-    p_for_test = 'E:\L6\FC2-PPV-1962384\hhd800.com@FC2-PPV-1962384.mp4'
-
-    frame_ts_list = parse_frame_ts(p_for_test)
+    frame_ts_list = parse_frame_ts(VIDEO_FILE_FOR_TEST)
     ls = calculate_frame_ts(frame_ts_list, start_at_ts=18 * 60 + 1, duration=1.2)
-    frame_record_list = list(extract_frame_ts(p_for_test, ls))
+    frame_record_list = list(extract_frame_ts(VIDEO_FILE_FOR_TEST, ls))
     b = pack_for_360p_webm(frame_record_list)
-    (Path(__file__).parents[1] / 'sample' / 'test.webm').write_bytes(b)
+    (TEMP_STORAGE / 'test.webm').write_bytes(b)

@@ -1,12 +1,13 @@
 import dataclasses
-import pathlib
 import typing as t
 
 import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
 
-_MODEL_DIR = pathlib.Path(__file__).parents[1] / 'model' / 'insightface'
+from src.file_index import MODEL_STORAGE, VIDEO_FILE_FOR_TEST
+
+_MODEL_DIR = MODEL_STORAGE / 'insightface'
 _MODEL_DIR.mkdir(exist_ok=True)
 _ANALYSER = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
                          root=_MODEL_DIR.absolute().__str__())
@@ -115,9 +116,8 @@ def _detect(img):
 
 
 if __name__ == '__main__':
-    test_video = pathlib.Path(r'E:\L6\[98t.tv]FC2PPV-3009465\FC2PPV-3009465-3.mp4')
     from src.loader import iter_keyframe_bgr24
 
-    keyframe_records = list(iter_keyframe_bgr24(test_video))
+    keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
     out = find_best_face([f.bgr_array for f in keyframe_records])
     print(out)

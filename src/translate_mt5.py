@@ -4,9 +4,9 @@ import typing
 import torch
 from transformers import pipeline, Pipeline
 
-from src.config import MODEL_DIR
+from src.file_index import MODEL_STORAGE
 
-_DOWNLOAD_DIR = (MODEL_DIR / 'transformer').absolute().__str__()
+_DOWNLOAD_DIR = (MODEL_STORAGE / 'transformer').absolute().__str__()
 
 
 def pip_factory() -> Pipeline:
@@ -27,7 +27,7 @@ def translate_list(list_to_translate: typing.Iterable[str]) -> list[str]:
     result_list = []
     # 不要用dataset的方式.数据量上去后实测会卡死!! 15.1GB VRAM + 94%GPU 已然冒烟
     for text in pad_request:
-        text = ''.join(pipe.tokenizer.tokenize(text)[:int(128*0.9)])
+        text = ''.join(pipe.tokenizer.tokenize(text)[:int(128 * 0.9)])
         result = pipe(text)
         print(result)
         result_list.extend(result)

@@ -9,6 +9,7 @@ import numpy as np
 from nudenet import NudeDetector
 
 from loader import iter_keyframe_bgr24, FrameRecord
+from src.file_index import VIDEO_FILE_FOR_TEST
 
 
 def calculate_overlap_ratio(bbox1, bbox2) -> float:
@@ -190,8 +191,7 @@ def process_video_for_detections(video_path: Path) -> list[tuple[FrameRecord, Bo
 
 
 def _test():
-    test_video_path = 'D:\L5\[JAV] [Uncensored] FC2 PPV 1888207 [1080p]\FC2-PPV-1888207_1.mp4'
-    result = process_video_for_detections(test_video_path)
+    result = process_video_for_detections(VIDEO_FILE_FOR_TEST)
     result_for_oral_sorted = sorted(result, key=lambda x: x[1].oral_penetration.confidence, reverse=True)
     for result_for_oral in result_for_oral_sorted[0:5]:
         cv2.imshow('', result_for_oral[0].bgr_array)
@@ -200,3 +200,7 @@ def _test():
     for result_for_vaginal in result_for_vaginal_sorted[0:5]:
         cv2.imshow('', result_for_vaginal[0].bgr_array)
         cv2.waitKey(0)
+
+
+if __name__ == '__main__':
+    _test()

@@ -1,11 +1,11 @@
 import gc
-import traceback
 
 import numpy as np
 import torch
 import whisper
 
-from src.config import Middleware, MODEL_DIR
+from src.config import Middleware
+from src.file_index import MODEL_STORAGE
 
 
 def create_transcribe(wav_array: np.ndarray, heuristic_cut: list[Middleware] | None = None) -> list[Middleware]:
@@ -18,7 +18,7 @@ def create_transcribe(wav_array: np.ndarray, heuristic_cut: list[Middleware] | N
     """
     # print('call call call')
     # traceback.print_stack()
-    asr_model = whisper.load_model('large-v3', download_root=MODEL_DIR.absolute().__str__())
+    asr_model = whisper.load_model('large-v3', download_root=MODEL_STORAGE.absolute().__str__())
 
     transcript_list = []
     for speech_timestamp in heuristic_cut:

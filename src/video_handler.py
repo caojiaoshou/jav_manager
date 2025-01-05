@@ -1,6 +1,7 @@
 import pathlib
 
 from src.body_part import process_frame_for_detections, BodyPartDetectionCollection
+from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, calculate_frame_ts, extract_frame_ts, \
     FrameRecord
 from src.scene import create_frame_diff, FrameDiffRecord
@@ -52,8 +53,6 @@ def create_video_website_style_webm_preview(p: pathlib.Path) -> bytes:
 
 
 if __name__ == '__main__':
-    p_for_test = pathlib.Path(r'E:\L6\FC2PPV-2440091\FC2PPV-2440091-1.mp4')
-
-    out_path = pathlib.Path(__file__).parents[1] / 'sample' / p_for_test.with_suffix('.webm').name
-    webm_bytes = create_video_website_style_webm_preview(p_for_test)
+    out_path = TEMP_STORAGE / VIDEO_FILE_FOR_TEST.with_suffix('.webm').name
+    webm_bytes = create_video_website_style_webm_preview(VIDEO_FILE_FOR_TEST)
     out_path.write_bytes(webm_bytes)

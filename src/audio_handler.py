@@ -2,6 +2,7 @@ import pathlib
 
 from src.asr import create_transcribe
 from src.config import Middleware
+from src.file_index import VIDEO_DIR_FOR_TEST
 from src.loader import get_audio_samples_as_float32_array
 from src.srt import create_srt_content
 from src.translate_mt5 import translate_list
@@ -31,6 +32,6 @@ def full_work(p_todo: pathlib.Path):
 
 
 if __name__ == '__main__':
-    ls = pathlib.Path(r'E:\L6\FC2-PPV-3939370').glob('*.mp4')
+    ls = VIDEO_DIR_FOR_TEST.glob('*.mp4')
     for p in ls:
         full_work(p)

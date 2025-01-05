@@ -10,7 +10,6 @@ def translate_list(list_to_translate: typing.Iterable[str]) -> list[str]:
     result_list = []
     for item in list_to_translate:
         if item:
-
             while True:
                 text = item
                 salt = uuid4().hex
