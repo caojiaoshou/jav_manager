@@ -8,12 +8,12 @@ from src.file_index import MODEL_STORAGE, VIDEO_FILE_FOR_TEST
 
 _MODEL_DIR = MODEL_STORAGE / 'insightface'
 _MODEL_DIR.mkdir(exist_ok=True)
-_ANALYSER = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
-                         root=_MODEL_DIR.absolute().__str__())
-_ANALYSER.prepare(ctx_id=0, det_size=(640, 640))
+_FACE_ANALYSER = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                              root=_MODEL_DIR.absolute().__str__())
+_FACE_ANALYSER.prepare(ctx_id=0, det_size=(640, 640))
 
 
-class BestFace(t.NamedTuple):
+class DetectedFace(t.NamedTuple):
     left: int
     top: int
     right: int
@@ -23,7 +23,7 @@ class BestFace(t.NamedTuple):
     roll: float
 
     @classmethod
-    def from_insightface_record(cls, record: any) -> 'BestFace':
+    def from_insightface_record(cls, record: any) -> 'DetectedFace':
         return cls(
             *map(int, record.bbox),
             *map(float, record.pose)
@@ -38,14 +38,14 @@ class BestFace(t.NamedTuple):
         return self.bottom - self.top
 
 
-class FaceAnalysisResult(t.NamedTuple):
-    best: BestFace
+class FaceDetectionResult(t.NamedTuple):
+    best: DetectedFace
     frame_index: int
     age: float
     face_serial: np.ndarray
 
 
-def cos_similarity(map_: np.ndarray, target: np.ndarray) -> np.float64 | np.ndarray:
+def _calculate_cos_similarity(map_: np.ndarray, target: np.ndarray) -> np.float64 | np.ndarray:
     # 如果输入是一维数组，则增加一个轴以支持广播机制
     if map_.ndim == 1:
         map_ = map_[np.newaxis, :]
@@ -69,57 +69,60 @@ def cos_similarity(map_: np.ndarray, target: np.ndarray) -> np.float64 | np.ndar
         return similarity
 
 
-def min_max_scale(arr: np.ndarray) -> np.ndarray:
+def _normalize_min_max(arr: np.ndarray) -> np.ndarray:
     return (arr - arr.min()) / (arr.max() - arr.min())
 
 
-def find_best_face(image_seq: t.Sequence[np.ndarray]) -> FaceAnalysisResult:
-    record_list: list[tuple[int, any]] = []
-    for image_index, image_array in enumerate(image_seq):
-        image_female_face_list = [f for f in _ANALYSER.get(image_array) if (f.sex == 'F') and (f.det_score > 0.6)]
-        if image_female_face_list:
-            record_list.append((image_index, image_female_face_list[0]))
+def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetectionResult:
+    female_face_records: list[tuple[int, any]] = []
+    for frame_index, frame_image in enumerate(image_sequence):
+        detected_female_face_list = [
+            f for f in _FACE_ANALYSER.get(frame_image)
+            if (f.sex == 'F') and (f.det_score > 0.6)
+        ]
+        if detected_female_face_list:
+            female_face_records.append((frame_index, detected_female_face_list[0]))
 
-    det_weight = np.array([r[1].det_score for r in record_list], dtype=np.float64)
-    det_weight = min_max_scale(det_weight)
+    detection_scores = np.array([face_record[1].det_score for face_record in female_face_records], dtype=np.float64)
+    detection_scores = _normalize_min_max(detection_scores)
 
-    age_array = np.array([r[1].age for r in record_list], dtype=np.float64)
-    serial_array = np.array([r[1].normed_embedding for r in record_list], dtype=np.float64)
-    pose_array = np.array([r[1].pose for r in record_list], dtype=np.float64)
+    ages = np.array([r[1].age for r in female_face_records], dtype=np.float64)
+    embeddings = np.array([r[1].normed_embedding for r in female_face_records], dtype=np.float64)
+    poses = np.array([r[1].pose for r in female_face_records], dtype=np.float64)
 
-    pose_weight = np.abs(pose_array)
-    pose_weight[:, 2] = pose_weight[:, 2] * 0.5
-    pose_weight = np.prod(pose_weight, axis=1) ** (1.0 / 3.0)
-    pose_weight = min_max_scale(pose_weight)
+    pose_confidences = np.abs(poses)
+    pose_confidences[:, 2] = pose_confidences[:, 2] * 0.5
+    pose_confidences = np.prod(pose_confidences, axis=1) ** (1.0 / 3.0)
+    pose_confidences = _normalize_min_max(pose_confidences)
 
-    preview_weight = det_weight - pose_weight
-    preview_sort = np.argsort(preview_weight)
-    preview_index_in_middleware = int(preview_sort[-1])
-    preview_index_in_input, preview_record = record_list[preview_index_in_middleware]
-    age_value = (det_weight * age_array).sum() / det_weight.sum()
+    final_scores = detection_scores - pose_confidences
+    sorted_indices = np.argsort(final_scores)
+    best_face_index = int(sorted_indices[-1])
+    best_frame_index, best_face_record = female_face_records[best_face_index]
+    average_age = (detection_scores * ages).sum() / detection_scores.sum()
 
-    all_serial_value = np.mean(serial_array, axis=0)
-    sim_to_mean = cos_similarity(serial_array, all_serial_value)
-    mask = np.where(sim_to_mean > sim_to_mean.mean() - sim_to_mean.std(), 1, 0)
-    serial_weight = det_weight * mask
-    all_serial_value_2 = (serial_array.transpose() * serial_weight).sum(axis=1) / serial_weight.sum()
+    mean_embedding = np.mean(embeddings, axis=0)
+    similarity_scores = _calculate_cos_similarity(embeddings, mean_embedding)
+    valid_mask = np.where(similarity_scores > similarity_scores.mean() - similarity_scores.std(), 1, 0)
+    embedding_weights = detection_scores * valid_mask
+    weighted_mean_embedding = (embeddings.transpose() * embedding_weights).sum(axis=1) / embedding_weights.sum()
 
-    preview_face = BestFace.from_insightface_record(preview_record)
-    result = FaceAnalysisResult(best=preview_face, frame_index=preview_index_in_input, age=age_value,
-                                face_serial=all_serial_value_2)
-    return result
+    best_face = DetectedFace.from_insightface_record(best_face_record)
+    res = FaceDetectionResult(best=best_face, frame_index=best_frame_index, age=average_age,
+                              face_serial=weighted_mean_embedding)
+    return res
 
 
-def crop_face_into_square(image: np.ndarray, face: BestFace) -> np.ndarray:
-    box_center_x_y = ((face.left + face.right) // 2, (face.top + face.bottom) // 2)
-    matrix_for_rotation = cv2.getRotationMatrix2D(box_center_x_y, face.roll / 3 * 2, 1.0)
-    rotated_img = cv2.warpAffine(image, matrix_for_rotation, (image.shape[1], image.shape[0]))
+def crop_and_rotate_face_into_square(image: np.ndarray, face: DetectedFace) -> np.ndarray:
+    face_center_x_y = ((face.left + face.right) // 2, (face.top + face.bottom) // 2)
+    rotation_matrix = cv2.getRotationMatrix2D(face_center_x_y, face.roll / 3 * 2, 1.0)
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (image.shape[1], image.shape[0]))
 
     new_x1 = int(max(face.left - face.width // 2, 0))
     new_y1 = int(max(face.top - face.height // 2, 0))
     new_x2 = int(max(face.right + face.width // 2, 0))
     new_y2 = int(max(face.bottom + face.height // 2, 0))
-    new_img = rotated_img[new_y1: new_y2, new_x1:new_x2]
+    new_img = rotated_image[new_y1: new_y2, new_x1:new_x2]
     return new_img
 
 
@@ -127,9 +130,9 @@ def _test_crop():
     from src.file_index import IMAGE_FILE_FOR_TEST
     img = cv2.imread(IMAGE_FILE_FOR_TEST.absolute().__str__())
 
-    face = BestFace.from_insightface_record(_ANALYSER.get(img)[0])
+    face = DetectedFace.from_insightface_record(_FACE_ANALYSER.get(img)[0])
 
-    crop_image = crop_face_into_square(img, face)
+    crop_image = crop_and_rotate_face_into_square(img, face)
 
     cv2.imshow('', crop_image)
     cv2.waitKey(0)
@@ -139,7 +142,7 @@ def _test_detect():
     from src.loader import iter_keyframe_bgr24
 
     keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
-    out = find_best_face([f.bgr_array for f in keyframe_records])
+    out = select_best_female_face([f.bgr_array for f in keyframe_records])
 
     cv2.imshow('', keyframe_records[out.frame_index].bgr_array)
     cv2.waitKey(0)
