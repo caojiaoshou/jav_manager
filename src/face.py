@@ -1,4 +1,3 @@
-import dataclasses
 import typing as t
 
 import cv2
@@ -14,16 +13,34 @@ _ANALYSER = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvid
 _ANALYSER.prepare(ctx_id=0, det_size=(640, 640))
 
 
-@dataclasses.dataclass
-class BestFace:
-    index: int
-    bbox: tuple[int, int, int, int]
+class BestFace(t.NamedTuple):
+    left: int
+    top: int
+    right: int
+    bottom: int
+    pitch: float
+    yaw: float
     roll: float
 
+    @classmethod
+    def from_insightface_record(cls, record: any) -> 'BestFace':
+        return cls(
+            *map(int, record.bbox),
+            *map(float, record.pose)
+        )
 
-@dataclasses.dataclass
-class FaceAnalysisResult:
+    @property
+    def width(self) -> int:
+        return self.right - self.left
+
+    @property
+    def height(self) -> int:
+        return self.bottom - self.top
+
+
+class FaceAnalysisResult(t.NamedTuple):
     best: BestFace
+    frame_index: int
     age: float
     face_serial: np.ndarray
 
@@ -87,37 +104,46 @@ def find_best_face(image_seq: t.Sequence[np.ndarray]) -> FaceAnalysisResult:
     serial_weight = det_weight * mask
     all_serial_value_2 = (serial_array.transpose() * serial_weight).sum(axis=1) / serial_weight.sum()
 
-    preview_face = BestFace(
-        preview_index_in_input,
-        tuple(map(int, preview_record.bbox)),
-        float(preview_record.pose[2])
-    )
-    result = FaceAnalysisResult(best=preview_face, age=age_value, face_serial=all_serial_value_2)
+    preview_face = BestFace.from_insightface_record(preview_record)
+    result = FaceAnalysisResult(best=preview_face, frame_index=preview_index_in_input, age=age_value,
+                                face_serial=all_serial_value_2)
     return result
 
 
-def _detect(img):
-    faces = _ANALYSER.get(img)
-    """
-    Pitch (Up/Down), Yaw (Left/Right),Roll (Tilt)
-    """
-    pitch, yaw, roll = faces[0].pose
+def crop_face_into_square(image: np.ndarray, face: BestFace) -> np.ndarray:
+    box_center_x_y = ((face.left + face.right) // 2, (face.top + face.bottom) // 2)
+    matrix_for_rotation = cv2.getRotationMatrix2D(box_center_x_y, face.roll / 3 * 2, 1.0)
+    rotated_img = cv2.warpAffine(image, matrix_for_rotation, (image.shape[1], image.shape[0]))
 
-    """
-    left_eye, right_eye, nose, left_mouth, right_mouth
-    """
-    kps = faces[0].kps
-    print(faces)
+    new_x1 = int(max(face.left - face.width // 2, 0))
+    new_y1 = int(max(face.top - face.height // 2, 0))
+    new_x2 = int(max(face.right + face.width // 2, 0))
+    new_y2 = int(max(face.bottom + face.height // 2, 0))
+    new_img = rotated_img[new_y1: new_y2, new_x1:new_x2]
+    return new_img
 
-    faces[0].normed_embedding
-    rimg = _ANALYSER.draw_on(img, faces)
-    cv2.imshow("t1_output.jpg", rimg)
+
+def _test_crop():
+    from src.file_index import IMAGE_FILE_FOR_TEST
+    img = cv2.imread(IMAGE_FILE_FOR_TEST.absolute().__str__())
+
+    face = BestFace.from_insightface_record(_ANALYSER.get(img)[0])
+
+    crop_image = crop_face_into_square(img, face)
+
+    cv2.imshow('', crop_image)
     cv2.waitKey(0)
 
 
-if __name__ == '__main__':
+def _test_detect():
     from src.loader import iter_keyframe_bgr24
 
     keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
     out = find_best_face([f.bgr_array for f in keyframe_records])
-    print(out)
+
+    cv2.imshow('', keyframe_records[out.frame_index].bgr_array)
+    cv2.waitKey(0)
+
+
+if __name__ == '__main__':
+    _test_crop()
