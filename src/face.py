@@ -74,39 +74,58 @@ def _normalize_min_max(arr: np.ndarray) -> np.ndarray:
 
 
 def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetectionResult:
-    female_face_records: list[tuple[int, any]] = []
+    # 确保至少有一个图像
+    if not image_sequence:
+        raise ValueError("Image sequence is empty")
+
+    female_face_records = []
     for frame_index, frame_image in enumerate(image_sequence):
-        detected_female_face_list = [
-            f for f in _FACE_ANALYSER.get(frame_image)
+        detected_faces = _FACE_ANALYSER.get(frame_image)
+
+        detected_female_faces = [
+            f for f in detected_faces
             if (f.sex == 'F') and (f.det_score > 0.6)
         ]
-        if detected_female_face_list:
-            female_face_records.append((frame_index, detected_female_face_list[0]))
+        if detected_female_faces:
+            female_face_records.append((frame_index, detected_female_faces[0]))
 
-    detection_scores = np.array([face_record[1].det_score for face_record in female_face_records], dtype=np.float64)
-    detection_scores = _normalize_min_max(detection_scores)
+    if not female_face_records:
+        raise ValueError("No female faces detected")
 
+    # 提取所有需要的数据
+    detection_stores = np.array([face_record[1].det_score for face_record in female_face_records], dtype=np.float64)
     ages = np.array([r[1].age for r in female_face_records], dtype=np.float64)
     embeddings = np.array([r[1].normed_embedding for r in female_face_records], dtype=np.float64)
     poses = np.array([r[1].pose for r in female_face_records], dtype=np.float64)
+
+    # 计算置信度
+    detection_confidences = _normalize_min_max(detection_stores)
 
     pose_confidences = np.abs(poses)
     pose_confidences[:, 2] = pose_confidences[:, 2] * 0.5
     pose_confidences = np.prod(pose_confidences, axis=1) ** (1.0 / 3.0)
     pose_confidences = _normalize_min_max(pose_confidences)
 
-    final_scores = detection_scores - pose_confidences
-    sorted_indices = np.argsort(final_scores)
-    best_face_index = int(sorted_indices[-1])
-    best_frame_index, best_face_record = female_face_records[best_face_index]
-    average_age = (detection_scores * ages).sum() / detection_scores.sum()
+    final_confidences = detection_confidences - pose_confidences
 
+    # 利用人脸向量排除特异点
     mean_embedding = np.mean(embeddings, axis=0)
     similarity_scores = _calculate_cos_similarity(embeddings, mean_embedding)
     valid_mask = np.where(similarity_scores > similarity_scores.mean() - similarity_scores.std(), 1, 0)
-    embedding_weights = detection_scores * valid_mask
-    weighted_mean_embedding = (embeddings.transpose() * embedding_weights).sum(axis=1) / embedding_weights.sum()
+    embedding_weights = final_confidences * valid_mask
 
+    # 计算平均年龄
+    average_age = (embedding_weights * ages).sum() / embedding_weights.sum()
+
+    # 计算人脸向量
+    weighted_mean_embedding = (embeddings.T * embedding_weights).sum(axis=1) / embedding_weights.sum()
+
+    # 获取最佳人脸
+    sorted_indices = np.argsort(final_confidences)
+    best_face_index = int(sorted_indices[-1])
+    best_frame_index, best_face_record = female_face_records[best_face_index]
+
+    # 返回结果
     best_face = DetectedFace.from_insightface_record(best_face_record)
     res = FaceDetectionResult(best=best_face, frame_index=best_frame_index, age=average_age,
                               face_serial=weighted_mean_embedding)
