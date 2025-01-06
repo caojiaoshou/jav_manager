@@ -137,10 +137,14 @@ def crop_and_rotate_face_into_square(image: np.ndarray, face: DetectedFace) -> n
     rotation_matrix = cv2.getRotationMatrix2D(face_center_x_y, face.roll / 3 * 2, 1.0)
     rotated_image = cv2.warpAffine(image, rotation_matrix, (image.shape[1], image.shape[0]))
 
-    new_x1 = int(max(face.left - face.width // 2, 0))
+    # 脸部高度占画幅一半,且居中
     new_y1 = int(max(face.top - face.height // 2, 0))
-    new_x2 = int(max(face.right + face.width // 2, 0))
-    new_y2 = int(max(face.bottom + face.height // 2, 0))
+    new_y2 = int(min(new_y1 + face.height * 2, rotated_image.shape[0]))
+
+    # 扩张画幅到1比1
+    new_x1 = int(face_center_x_y[0] - (new_y2 - new_y1) / 2)
+    new_x2 = new_x1 + (new_y2 - new_y1)
+
     new_img = rotated_image[new_y1: new_y2, new_x1:new_x2]
     return new_img
 
