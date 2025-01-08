@@ -4,7 +4,9 @@ import enum
 import pathlib
 import typing as t
 
-from sqlalchemy import TypeDecorator, String, Column
+import numpy as np
+from pydantic import ConfigDict
+from sqlalchemy import TypeDecorator, String, Column, BLOB
 from sqlmodel import SQLModel, Field, create_engine, Session
 
 from src.file_index import DATABASE_STORAGE
@@ -24,6 +26,20 @@ class PathType(TypeDecorator):
         return value
 
 
+class Float32ArrayType(TypeDecorator):
+    impl = BLOB
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, np.ndarray):
+            return value.astype(np.float32).tobytes()
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return np.frombuffer(value, dtype=np.float32)
+        return value
+
+
 class _Progress(enum.IntEnum):
     NOT_STARTED = 0
     IN_PROGRESS = 1
@@ -37,22 +53,31 @@ class _Videos(SQLModel, table=True):
     vad_state: int = Field(default=_Progress.NOT_STARTED)
     asr_state: int = Field(default=_Progress.NOT_STARTED)
     translate_state: int = Field(default=_Progress.NOT_STARTED)
-    preview_state: int = Field(default=_Progress.NOT_STARTED)
-    sticker_state: int = Field(default=_Progress.NOT_STARTED)
+    quick_look_state: int = Field(default=_Progress.NOT_STARTED)
+    face_state: int = Field(default=_Progress.NOT_STARTED)
     scene_state: int = Field(default=_Progress.NOT_STARTED)
     delete: bool = Field(default=False)
 
 
-class _QuickLooks(SQLModel, table=True):
+class _Faces(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(default=None, index=True)
-    preview_path: pathlib.Path
-    sticker_path: pathlib.Path
+    embedding: np.ndarray = Field(sa_column=Column(Float32ArrayType))
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True
+    )
+
+
+class _QuickLooks(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True)
+    video_id: int = Field(index=True)
+    path: pathlib.Path
 
 
 class _Speeches(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    video_id: int = Field(default=None, index=True)
+    video_id: int = Field(index=True)
     start_at: float
     end_at: float
     asr_text: str
@@ -61,20 +86,20 @@ class _Speeches(SQLModel, table=True):
 
 class _Scenes(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    video_id: int = Field(default=None, index=True)
+    video_id: int = Field(index=True)
     start_at: float
     preview_path: str
 
 
 class _AudioSamplePickles(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    video_id: int = Field(default=None, index=True)
+    video_id: int = Field(index=True)
     path: pathlib.Path
 
 
 class _SlaveHistory(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    video_id: int = Field(default=None, index=True)
+    video_id: int = Field(index=True)
     acquire_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
     release_at: datetime.datetime = Field(default=datetime.datetime.min)
     processor: str = Field(default='')
