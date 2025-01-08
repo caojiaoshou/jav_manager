@@ -166,6 +166,16 @@ def pack_for_360p_webm(frame_record_list: list[FrameRecord]) -> bytes:
         return buffer.getvalue()
 
 
+def get_video_duration(video_path: str) -> float:
+    try:
+        container = av.open(video_path)
+        duration = container.duration / av.time_base
+        return float(duration)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return 0.0
+
+
 if __name__ == '__main__':
     frame_ts_list = parse_frame_ts(VIDEO_FILE_FOR_TEST)
     ls = calculate_frame_ts(frame_ts_list, start_at_ts=18 * 60 + 1, duration=1.2)

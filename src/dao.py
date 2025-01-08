@@ -1,11 +1,27 @@
 import contextlib
 import datetime
 import enum
+import pathlib
 import typing as t
 
+from sqlalchemy import TypeDecorator, String, Column
 from sqlmodel import SQLModel, Field, create_engine, Session
 
 from src.file_index import DATABASE_STORAGE
+
+
+class PathType(TypeDecorator):
+    impl = String
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, pathlib.Path):
+            return value.absolute().__str__()
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return pathlib.Path(value)
+        return value
 
 
 class _Progress(enum.IntEnum):
@@ -16,21 +32,22 @@ class _Progress(enum.IntEnum):
 
 class _Videos(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    dir_path: str = Field(index=True)
-    file_name: str = Field(index=True)
-    vad_state: _Progress = Field(default=_Progress.NOT_STARTED)
-    asr_state: _Progress = Field(default=_Progress.NOT_STARTED)
-    translate_state: _Progress = Field(default=_Progress.NOT_STARTED)
-    preview_state: _Progress = Field(default=_Progress.NOT_STARTED)
-    sticker_state: _Progress = Field(default=_Progress.NOT_STARTED)
-    scene_state: _Progress = Field(default=_Progress.NOT_STARTED)
+    group: str = Field(index=True)
+    file_path: pathlib.Path = Field(sa_column=Column(PathType))
+    vad_state: int = Field(default=_Progress.NOT_STARTED)
+    asr_state: int = Field(default=_Progress.NOT_STARTED)
+    translate_state: int = Field(default=_Progress.NOT_STARTED)
+    preview_state: int = Field(default=_Progress.NOT_STARTED)
+    sticker_state: int = Field(default=_Progress.NOT_STARTED)
+    scene_state: int = Field(default=_Progress.NOT_STARTED)
+    delete: bool = Field(default=False)
 
 
 class _QuickLooks(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(default=None, index=True)
-    preview_path: str
-    sticker_path: str
+    preview_path: pathlib.Path
+    sticker_path: pathlib.Path
 
 
 class _Speeches(SQLModel, table=True):
@@ -52,7 +69,7 @@ class _Scenes(SQLModel, table=True):
 class _AudioSamplePickles(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(default=None, index=True)
-    path: str
+    path: pathlib.Path
 
 
 class _SlaveHistory(SQLModel, table=True):
@@ -78,3 +95,20 @@ def _use_session() -> t.ContextManager[Session]:
             raise e
         finally:
             session.close()
+
+
+def add_video(group: str, file_path: pathlib.Path):
+    with _use_session() as session:
+        session.add(_Videos(group=group, file_path=file_path))
+        session.commit()
+
+
+def delete_video(video_id: int):
+    with _use_session() as session:
+        session.query(_Videos).filter(_Videos.id == video_id).update({_Videos.delete: True})
+        session.commit()
+
+
+def list_videos() -> list[_Videos]:
+    with _use_session() as session:
+        return session.query(_Videos).filter(_Videos.delete == False).all()
