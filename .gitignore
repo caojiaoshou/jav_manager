@@ -5,3 +5,4 @@ model
 *.srt
 sample
 gui_dist
+database
