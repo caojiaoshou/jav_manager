@@ -96,4 +96,4 @@ def list_finish_views() -> list[id]:
 
 
 if __name__ == '__main__':
-    prepare_videos()
+    handle_views()

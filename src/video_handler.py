@@ -1,5 +1,6 @@
 import itertools
 import pathlib
+import time
 import typing as t
 from heapq import nlargest
 
@@ -14,7 +15,9 @@ from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, 
     extract_frame_ts
 from src.rmbg import get_foreground_mask
 from src.scene import create_frame_diff, FrameDiffRecord
+from src.logger import configure_logger
 
+_LOGGER = configure_logger('video')
 
 class VideoFullWorkResult(t.NamedTuple):
     faces: list[VideoFace]
@@ -24,14 +27,25 @@ class VideoFullWorkResult(t.NamedTuple):
 
 
 def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
-    keyframe_record_list = list(iter_keyframe_bgr24(p))
 
+    start_at = time.time()
+    _LOGGER.debug(f'提取关键帧 {p}')
+    keyframe_record_list = list(iter_keyframe_bgr24(p))
+    _LOGGER.debug(f'提取关键帧 用时 {time.time() - start_at:.2f}s')
+
+    start_at = time.time()
+    _LOGGER.debug(f'识别身体部位 {p}')
     keyframe_detection_list = [
         process_frame_for_detections(keyframe_record.bgr_array)
         for keyframe_record in keyframe_record_list
     ]
+    _LOGGER.debug(f'识别身体部位 用时 {time.time() - start_at:.2f}s')
 
+    start_at = time.time()
+    _LOGGER.debug(f'计算视频帧差值 {p}')
     diff_list = create_frame_diff(keyframe_record_list)
+    _LOGGER.debug(f'计算视频帧差值 用时 {time.time() - start_at:.2f}s')
+
 
     composite_list: list[tuple[FrameRecord, BodyPartDetectionCollection, FrameDiffRecord]] = [
         (i, j, k)
@@ -49,6 +63,8 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     concat_base_start_at = sorted({i[0].start_at for i in concat_base})
 
     # 处理预览视频
+    start_at = time.time()
+    _LOGGER.debug(f'生成预览视频 {p}')
     all_frame_ts = parse_frame_ts(p)
     quick_look_slicers = [
         calculate_frame_ts(all_frame_ts, start_at, 1.5)
@@ -56,6 +72,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     ]
     quick_look_frames = list(itertools.chain(*map(lambda slicer: extract_frame_ts(p, slicer), quick_look_slicers)))
     quick_look_video_bytes = pack_for_360p_webm(quick_look_frames)
+    _LOGGER.debug(f'生成预览视频 用时 {time.time() - start_at:.2f}s')
 
     # 处理预览时间轴
     scenes_ts_image = [
@@ -65,6 +82,8 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     ]
 
     # 处理面部识别
+    start_at = time.time()
+    _LOGGER.debug(f'识别面部 {p}')
     prob_female_face_frames = [
         record_tuple[0].bgr_array
         for record_tuple in composite_list
@@ -76,6 +95,8 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
         np.dstack([face_target_frame, get_foreground_mask(face_target_frame)]),
         best_female_face.best
     )
+    _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
+
     face = VideoFace(best_female_face.face_serial, best_female_face.age, face_target_frame, face_crop_image)
 
     # 处理身体部位
