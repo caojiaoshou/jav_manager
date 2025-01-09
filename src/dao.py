@@ -374,3 +374,7 @@ def delete_quick_look(video_id: int):
             sas.commit()
         video_ist.quick_look_state = ProgressState.NOT_STARTED
         sas.commit()
+
+
+if __name__ == '__main__':
+    print(list_videos())

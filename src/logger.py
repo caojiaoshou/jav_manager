@@ -36,11 +36,15 @@ def configure_logger(name: str) -> logging.Logger:
             critical_log_filepath = LOG_STORAGE / f'{log_filename_prefix}_critical.log'
 
             # 创建文件处理器
-            debug_handler = TimedRotatingFileHandler(debug_log_filepath, interval=1, backupCount=65535)
-            info_handler = TimedRotatingFileHandler(info_log_filepath, interval=1, backupCount=65535)
-            warning_handler = TimedRotatingFileHandler(warning_log_filepath, interval=1, backupCount=65535)
-            error_handler = TimedRotatingFileHandler(error_log_filepath, interval=1, backupCount=65535)
-            critical_handler = TimedRotatingFileHandler(critical_log_filepath, interval=1, backupCount=65535)
+            debug_handler = TimedRotatingFileHandler(debug_log_filepath, interval=1, backupCount=65535,
+                                                     encoding='utf-8')
+            info_handler = TimedRotatingFileHandler(info_log_filepath, interval=1, backupCount=65535, encoding='utf-8')
+            warning_handler = TimedRotatingFileHandler(warning_log_filepath, interval=1, backupCount=65535,
+                                                       encoding='utf-8')
+            error_handler = TimedRotatingFileHandler(error_log_filepath, interval=1, backupCount=65535,
+                                                     encoding='utf-8')
+            critical_handler = TimedRotatingFileHandler(critical_log_filepath, interval=1, backupCount=65535,
+                                                        encoding='utf-8')
 
             # 设置处理器的日志级别
             debug_handler.setLevel(logging.DEBUG)
