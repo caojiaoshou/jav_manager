@@ -65,7 +65,8 @@ class _Videos(SQLModel, table=True):
 
 class _Faces(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
-    video_id: int = Field(default=None, index=True)
+    video_id: int = Field(index=True)
+    history_id: int = Field(index=True)
     embedding: np.ndarray = Field(sa_column=Column(Float32ArrayType))
     preview_path: pathlib.Path = Field(sa_column=Column(PathType))
     sticker_path: pathlib.Path = Field(sa_column=Column(PathType))
@@ -78,12 +79,14 @@ class _Faces(SQLModel, table=True):
 class _QuickLooks(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(index=True)
+    history_id: int = Field(index=True)
     path: pathlib.Path
 
 
 class _Speeches(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(index=True)
+    history_id: int = Field(index=True)
     start_at: float
     end_at: float
     asr_text: str
@@ -93,6 +96,7 @@ class _Speeches(SQLModel, table=True):
 class _Scenes(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(index=True)
+    history_id: int = Field(index=True)
     start_at: float
     preview_path: pathlib.Path = Field(sa_column=Column(PathType))
 
@@ -100,12 +104,14 @@ class _Scenes(SQLModel, table=True):
 class _AudioSamplePickles(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(index=True)
+    history_id: int = Field(index=True)
     path: pathlib.Path
 
 
 class _BodyParts(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(index=True)
+    history_id: int = Field(index=True)
     part: str
     start_at: float
     frame_path: pathlib.Path = Field(sa_column=Column(PathType))
@@ -197,6 +203,7 @@ def force_update_face(video_id: int, face_sequence: t.Iterable[VideoFace]):
                 cv2.imwrite(raw_path.absolute().__str__(), face_record.frame)
                 face_ist = _Faces(
                     video_id=video_id,
+                    history_id=history_ist.id,
                     embedding=face_record.embedding,
                     preview_path=raw_path,
                     sticker_path=sticker_path,
@@ -233,6 +240,7 @@ def force_update_scene(video_id: int, scene_sequence: t.Iterable[VideoScene]):
                 cv2.imwrite(preview_path.absolute().__str__(), scene_record.frame)
                 scene_ist = _Scenes(
                     video_id=video_id,
+                    history_id=history_ist.id,
                     start_at=scene_record.start_at,
                     preview_path=preview_path
                 )
@@ -268,6 +276,7 @@ def force_update_body_part(video_id: int, body_part_sequence: t.Iterable[VideoBo
                 cv2.imwrite(frame_path.absolute().__str__(), body_part_record.frame)
                 body_part_ist = _BodyParts(
                     video_id=video_id,
+                    history_id=history_ist.id,
                     part=body_part_record.part,
                     start_at=body_part_record.ts,
                     frame_path=frame_path
@@ -298,6 +307,7 @@ def force_update_quick_look(video_id: int, quick_look_video: bytes):
                 f.write(quick_look_video)
             quick_look_ist = _QuickLooks(
                 video_id=video_id,
+                history_id=history_ist.id,
                 path=quick_look_path
             )
             sas.add(quick_look_ist)
