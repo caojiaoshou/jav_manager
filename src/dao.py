@@ -43,23 +43,23 @@ class Float32ArrayType(TypeDecorator):
         return value
 
 
-class _Progress(enum.IntEnum):
+class ProgressState(enum.IntEnum):
     NOT_STARTED = 0
     IN_PROGRESS = 1
     COMPLETED = 2
 
 
-class _Videos(SQLModel, table=True):
+class Videos(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     group: str = Field(index=True)
     file_path: pathlib.Path = Field(sa_column=Column(PathType))
-    vad_state: int = Field(default=_Progress.NOT_STARTED)
-    asr_state: int = Field(default=_Progress.NOT_STARTED)
-    translate_state: int = Field(default=_Progress.NOT_STARTED)
-    quick_look_state: int = Field(default=_Progress.NOT_STARTED)
-    face_state: int = Field(default=_Progress.NOT_STARTED)
-    scene_state: int = Field(default=_Progress.NOT_STARTED)
-    body_part_state: int = Field(default=_Progress.NOT_STARTED)
+    vad_state: int = Field(default=ProgressState.NOT_STARTED)
+    asr_state: int = Field(default=ProgressState.NOT_STARTED)
+    translate_state: int = Field(default=ProgressState.NOT_STARTED)
+    quick_look_state: int = Field(default=ProgressState.NOT_STARTED)
+    face_state: int = Field(default=ProgressState.NOT_STARTED)
+    scene_state: int = Field(default=ProgressState.NOT_STARTED)
+    body_part_state: int = Field(default=ProgressState.NOT_STARTED)
     delete: bool = Field(default=False)
 
 
@@ -160,20 +160,20 @@ def _use_session() -> t.ContextManager[Session]:
 
 def add_video(group: str, file_path: pathlib.Path):
     with _use_session() as session:
-        session.add(_Videos(group=group, file_path=file_path))
+        session.add(Videos(group=group, file_path=file_path))
         session.commit()
 
 
 def delete_video(video_id: int):
     with _use_session() as session:
-        ist = session.exec(select(_Videos).filter(_Videos.id == video_id)).one()
+        ist = session.exec(select(Videos).filter(Videos.id == video_id)).one()
         ist.delete = True
         session.commit()
 
 
-def list_videos() -> list[_Videos]:
+def list_videos() -> list[Videos]:
     with _use_session() as session:
-        rt = session.exec(select(_Videos).filter(_Videos != False)).all()
+        rt = session.exec(select(Videos).filter(Videos != False)).all()
     return rt
 
 
@@ -184,13 +184,13 @@ class VideoFace(t.NamedTuple):
     crop_image: np.ndarray
 
 
-def force_update_face(video_id: int, face_sequence: t.Iterable[VideoFace]):
+def update_face(video_id: int, face_sequence: t.Iterable[VideoFace]):
     with _use_session() as sas:
-        video_ist: _Videos = sas.exec(select(_Videos).filter(_Videos.id == video_id)).one()
-        if video_ist.face_state == _Progress.IN_PROGRESS:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        if video_ist.face_state == ProgressState.IN_PROGRESS:
             raise RacingProgressError('face block')
         else:
-            video_ist.face_state = _Progress.IN_PROGRESS
+            video_ist.face_state = ProgressState.IN_PROGRESS
             sas.commit()
             video_name = video_ist.file_path.with_suffix('').name
             history_ist = _SlaveHistory(video_id=video_id, processor='face')
@@ -211,10 +211,26 @@ def force_update_face(video_id: int, face_sequence: t.Iterable[VideoFace]):
                 )
                 sas.add(face_ist)
                 sas.commit()
-        video_ist.face_state = _Progress.COMPLETED
+        video_ist.face_state = ProgressState.COMPLETED
         sas.commit()
         history_ist.release_at = datetime.datetime.now()
         history_ist.result = 'success'
+        sas.commit()
+
+
+def delete_face(video_id: int):
+    with _use_session() as sas:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        video_ist.face_state = ProgressState.IN_PROGRESS
+        sas.commit()
+
+        for face_ist in sas.exec(select(_Faces).filter(_Faces.video_id == video_id)).all():  # type: _Faces
+            face_ist.preview_path.unlink(missing_ok=True)
+            face_ist.sticker_path.unlink(missing_ok=True)
+            sas.delete(face_ist)
+            sas.commit()
+
+        video_ist.face_state = ProgressState.NOT_STARTED
         sas.commit()
 
 
@@ -223,13 +239,13 @@ class VideoScene(t.NamedTuple):
     frame: np.ndarray
 
 
-def force_update_scene(video_id: int, scene_sequence: t.Iterable[VideoScene]):
+def update_scene(video_id: int, scene_sequence: t.Iterable[VideoScene]):
     with _use_session() as sas:
-        video_ist: _Videos = sas.exec(select(_Videos).filter(_Videos.id == video_id)).one()
-        if video_ist.scene_state == _Progress.IN_PROGRESS:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        if video_ist.scene_state == ProgressState.IN_PROGRESS:
             raise RacingProgressError('scene block')
         else:
-            video_ist.scene_state = _Progress.IN_PROGRESS
+            video_ist.scene_state = ProgressState.IN_PROGRESS
             sas.commit()
             video_name = video_ist.file_path.with_suffix('').name
             history_ist = _SlaveHistory(video_id=video_id, processor='scene')
@@ -246,10 +262,23 @@ def force_update_scene(video_id: int, scene_sequence: t.Iterable[VideoScene]):
                 )
                 sas.add(scene_ist)
                 sas.commit()
-        video_ist.scene_state = _Progress.COMPLETED
+        video_ist.scene_state = ProgressState.COMPLETED
         sas.commit()
         history_ist.release_at = datetime.datetime.now()
         history_ist.result = 'success'
+        sas.commit()
+
+
+def delete_scene(video_id: int):
+    with _use_session() as sas:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        video_ist.scene_state = ProgressState.IN_PROGRESS
+        sas.commit()
+        for scene_ist in sas.exec(select(_Scenes).filter(_Scenes.video_id == video_id)).all():  # type: _Scenes
+            scene_ist.preview_path.unlink(missing_ok=True)
+            sas.delete(scene_ist)
+            sas.commit()
+        video_ist.scene_state = ProgressState.NOT_STARTED
         sas.commit()
 
 
@@ -259,13 +288,13 @@ class VideoBodyPart(t.NamedTuple):
     frame: np.ndarray
 
 
-def force_update_body_part(video_id: int, body_part_sequence: t.Iterable[VideoBodyPart]):
+def update_body_part(video_id: int, body_part_sequence: t.Iterable[VideoBodyPart]):
     with _use_session() as sas:
-        video_ist: _Videos = sas.exec(select(_Videos).filter(_Videos.id == video_id)).one()
-        if video_ist.body_part_state == _Progress.IN_PROGRESS:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        if video_ist.body_part_state == ProgressState.IN_PROGRESS:
             raise RacingProgressError('body part block')
         else:
-            video_ist.body_part_state = _Progress.IN_PROGRESS
+            video_ist.body_part_state = ProgressState.IN_PROGRESS
             sas.commit()
             video_name = video_ist.file_path.with_suffix('').name
             history_ist = _SlaveHistory(video_id=video_id, processor='body part')
@@ -283,20 +312,34 @@ def force_update_body_part(video_id: int, body_part_sequence: t.Iterable[VideoBo
                 )
                 sas.add(body_part_ist)
                 sas.commit()
-        video_ist.body_part_state = _Progress.COMPLETED
+        video_ist.body_part_state = ProgressState.COMPLETED
         sas.commit()
         history_ist.release_at = datetime.datetime.now()
         history_ist.result = 'success'
         sas.commit()
 
 
-def force_update_quick_look(video_id: int, quick_look_video: bytes):
+def delete_body_part(video_id: int):
     with _use_session() as sas:
-        video_ist: _Videos = sas.exec(select(_Videos).filter(_Videos.id == video_id)).one()
-        if video_ist.quick_look_state == _Progress.IN_PROGRESS:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        video_ist.body_part_state = ProgressState.IN_PROGRESS
+        sas.commit()
+        for body_part_ist in sas.exec(
+                select(_BodyParts).filter(_BodyParts.video_id == video_id)).all():  # type: _BodyParts
+            body_part_ist.frame_path.unlink(missing_ok=True)
+            sas.delete(body_part_ist)
+            sas.commit()
+        video_ist.body_part_state = ProgressState.NOT_STARTED
+        sas.commit()
+
+
+def update_quick_look(video_id: int, quick_look_video: bytes):
+    with _use_session() as sas:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        if video_ist.quick_look_state == ProgressState.IN_PROGRESS:
             raise RacingProgressError('quick look block')
         else:
-            video_ist.quick_look_state = _Progress.IN_PROGRESS
+            video_ist.quick_look_state = ProgressState.IN_PROGRESS
             sas.commit()
             history_ist = _SlaveHistory(video_id=video_id, processor='quick look')
             sas.add(history_ist)
@@ -312,8 +355,22 @@ def force_update_quick_look(video_id: int, quick_look_video: bytes):
             )
             sas.add(quick_look_ist)
             sas.commit()
-        video_ist.quick_look_state = _Progress.COMPLETED
+        video_ist.quick_look_state = ProgressState.COMPLETED
         sas.commit()
         history_ist.release_at = datetime.datetime.now()
         history_ist.result = 'success'
+        sas.commit()
+
+
+def delete_quick_look(video_id: int):
+    with _use_session() as sas:
+        video_ist: Videos = sas.exec(select(Videos).filter(Videos.id == video_id)).one()
+        video_ist.quick_look_state = ProgressState.IN_PROGRESS
+        sas.commit()
+        for quick_look_ist in sas.exec(
+                select(_QuickLooks).filter(_QuickLooks.video_id == video_id)).all():  # type: _QuickLooks
+            quick_look_ist.path.unlink(missing_ok=True)
+            sas.delete(quick_look_ist)
+            sas.commit()
+        video_ist.quick_look_state = ProgressState.NOT_STARTED
         sas.commit()

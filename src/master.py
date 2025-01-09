@@ -1,9 +1,11 @@
 import pathlib
 import re
 
-from src.dao import list_videos, add_video, delete_video
+from src.dao import list_videos, add_video, delete_video, ProgressState, update_face, update_scene, update_body_part, \
+    update_quick_look, delete_quick_look, delete_body_part, delete_face, delete_scene
 from src.file_index import search_local_videos
 from src.loader import get_video_duration
+from src.video_handler import video_full_work, calculate_video_progress_state
 
 
 def _remove_bracketed_content(input_string: str) -> str:
@@ -44,5 +46,30 @@ def prepare_videos():
             delete_video(id_)
 
 
+def handle_views():
+    for r in list_videos():
+        video_progress_state_value = calculate_video_progress_state(r)
+        match video_progress_state_value:
+            case ProgressState.NOT_STARTED:
+                full_work_result = video_full_work(r.file_path)
+                update_quick_look(r.id, full_work_result.quick_look)
+                update_body_part(r.id, full_work_result.body_parts)
+                update_scene(r.id, full_work_result.scenes)
+                update_face(r.id, full_work_result.faces)
+            case ProgressState.IN_PROGRESS:
+                delete_quick_look(r.id)
+                delete_body_part(r.id)
+                delete_scene(r.id)
+                delete_face(r.id)
+            case ProgressState.COMPLETED:
+                continue
+            case _:
+                raise ValueError(f'unknown progress state {video_progress_state_value}')
+
+
+def list_finish_views() -> list[id]:
+    return [r.id for r in list_videos() if calculate_video_progress_state(r) == ProgressState.COMPLETED]
+
+
 if __name__ == '__main__':
-    prepare_videos()
+    handle_views()
