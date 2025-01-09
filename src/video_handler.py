@@ -7,30 +7,13 @@ import cv2
 import numpy as np
 
 from src.body_part import process_frame_for_detections, BodyPartDetectionCollection
+from src.dao import VideoFace, VideoScene, VideoBodyPart
 from src.face import crop_and_rotate_face_into_square, select_best_female_face
 from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, calculate_frame_ts, FrameRecord, \
     extract_frame_ts
 from src.rmbg import get_foreground_mask
 from src.scene import create_frame_diff, FrameDiffRecord
-
-
-class VideoFace(t.NamedTuple):
-    embedding: np.ndarray
-    age: float
-    frame: np.ndarray
-    crop_image: np.ndarray
-
-
-class VideoScene(t.NamedTuple):
-    start_at: float
-    frame: np.ndarray
-
-
-class VideoBodyPart(t.NamedTuple):
-    part: str
-    ts: float
-    frame: np.ndarray
 
 
 class VideoFullWorkResult(t.NamedTuple):
