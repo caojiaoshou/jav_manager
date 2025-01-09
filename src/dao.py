@@ -173,7 +173,7 @@ def delete_video(video_id: int):
 
 def list_videos() -> list[Videos]:
     with _use_session() as session:
-        rt = session.exec(select(Videos).filter(Videos != False)).all()
+        rt = session.exec(select(Videos).filter(Videos.delete == False)).all()
     return rt
 
 
