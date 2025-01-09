@@ -103,7 +103,6 @@ class BodyPartDetectionCollection:
     penis: DetectionResult = dataclasses.field(default_factory=DetectionResult)
     feet: DetectionResult = dataclasses.field(default_factory=DetectionResult)
     bar: DetectionResult = dataclasses.field(default_factory=DetectionResult)
-    leg: DetectionResult = dataclasses.field(default_factory=DetectionResult)
     pans: DetectionResult = dataclasses.field(default_factory=DetectionResult)
 
     @staticmethod
@@ -139,7 +138,7 @@ class BodyPartDetectionCollection:
     def lower_body(self) -> float:
         return statistics.geometric_mean(
             (
-                self.leg.confidence_en5,
+                self.feet.confidence_en5,
                 max(self.butt.confidence_en5, self.pans.confidence_en5)
             )
         )
@@ -168,8 +167,6 @@ def process_frame_for_detections(frame: np.ndarray) -> BodyPartDetectionCollecti
                 _record.feet = detection
             case 'FEMALE_BREAST_COVERED':
                 _record.bar = detection
-            case 'FEET_EXPOSED':
-                _record.leg = detection
             case 'BUTTOCKS_COVERED':
                 _record.pans = detection
     return _record

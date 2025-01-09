@@ -63,7 +63,7 @@ class _Faces(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(default=None, index=True)
     embedding: np.ndarray = Field(sa_column=Column(Float32ArrayType))
-
+    age: float
     model_config = ConfigDict(
         arbitrary_types_allowed=True
     )
