@@ -1,6 +1,7 @@
 import dataclasses
 import functools
 import statistics
+import time
 import typing as t
 from pathlib import Path
 
@@ -145,6 +146,7 @@ class BodyPartDetectionCollection:
 
 
 nude_detector = NudeDetector()
+nude_detector.onnx_session.set_providers(['CUDAExecutionProvider'])
 
 
 def process_frame_for_detections(frame: np.ndarray) -> BodyPartDetectionCollection:
@@ -199,5 +201,23 @@ def _test():
         cv2.waitKey(0)
 
 
+def _test_cuda():
+    test_set = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST, cuda=False))
+    print(f'默认 {nude_detector.onnx_session.get_providers()}')
+    nude_detector.onnx_session.set_providers(['CPUExecutionProvider'])
+    cpu_start_at = time.time()
+    for i in test_set:
+        nude_detector.detect(i.bgr_array)
+    cpu_cost = time.time() - cpu_start_at
+
+    nude_detector.onnx_session.set_providers(['CUDAExecutionProvider'])
+    cuda_start_at = time.time()
+    for i in test_set:
+        nude_detector.detect(i.bgr_array)
+    cuda_cost = time.time() - cuda_start_at
+
+    print(f'count: {len(test_set)}, cpu: {cpu_cost:.2f}, cuda: {cuda_cost:.2f}')
+
+
 if __name__ == '__main__':
-    _test()
+    _test_cuda()
