@@ -38,7 +38,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     keyframe_record_list = []
     for keyframe_record in iter_keyframe_bgr24(p):
         original_key_frame_count += 1
-        if keyframe_record.start_at > preview_start_at + 1.51:
+        if keyframe_record.start_at > preview_start_at + 1.4:
             preview_start_at = keyframe_record.start_at
             keyframe_record_list.append(keyframe_record)
     _LOGGER.debug(
