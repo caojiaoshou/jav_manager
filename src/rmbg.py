@@ -11,7 +11,7 @@ def get_foreground_mask(image: np.ndarray) -> np.ndarray:
     model_dir = MODEL_STORAGE / 'rmbg'
     model_dir.mkdir(exist_ok=True)
     os.environ['U2NET_HOME'] = model_dir.absolute().__str__()
-    session = new_session(model_name='birefnet-portrait')
+    session = new_session(model_name='birefnet-portrait', providers=['CUDAExecutionProvider'])
     return remove(image, only_mask=True, session=session)
 
 
