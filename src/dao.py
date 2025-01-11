@@ -80,7 +80,7 @@ class _QuickLooks(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(index=True)
     history_id: int = Field(index=True)
-    path: pathlib.Path
+    path: pathlib.Path = Field(sa_column=Column(PathType))
 
 
 class _Speeches(SQLModel, table=True):
