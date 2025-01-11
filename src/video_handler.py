@@ -1,3 +1,4 @@
+import gc
 import itertools
 import pathlib
 import time
@@ -61,18 +62,6 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
 
     concat_base_start_at = sorted({i[0].start_at for i in concat_base})
 
-    # 处理预览视频
-    start_at = time.time()
-    _LOGGER.debug(f'生成预览视频 {p}')
-    all_frame_ts = parse_frame_ts(p)
-    quick_look_slicers = [
-        calculate_frame_ts(all_frame_ts, start_at, 1.5)
-        for start_at in concat_base_start_at
-    ]
-    quick_look_frames = list(itertools.chain(*map(lambda slicer: extract_frame_ts(p, slicer), quick_look_slicers)))
-    quick_look_video_bytes = pack_for_360p_webm(quick_look_frames)
-    _LOGGER.debug(f'生成预览视频 用时 {time.time() - start_at:.2f}s')
-
     # 处理预览时间轴
     scenes_ts_image = [
         VideoScene(record.start_at, record.bgr_array)
@@ -107,6 +96,24 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     for part in ['butt', 'breast', 'pussy', 'feet', 'bar']:
         frame_record, *_ = nlargest(1, composite_list, key=lambda tup: tup[1].__getattribute__(part).confidence)[0]
         body_parts.append(VideoBodyPart(part, frame_record.start_at, frame_record.bgr_array))
+
+    # 调整处理顺序,并确保释放内存,看看能不能减轻内存占用
+    del keyframe_record_list
+    del composite_list
+    gc.collect()
+
+    # 处理预览视频
+    start_at = time.time()
+    _LOGGER.debug(f'生成预览视频 {p}')
+    all_frame_ts = parse_frame_ts(p)
+    quick_look_slicers = [
+        calculate_frame_ts(all_frame_ts, start_at, 1.5)
+        for start_at in concat_base_start_at
+    ]
+    quick_look_frames = list(itertools.chain(*map(lambda slicer: extract_frame_ts(p, slicer), quick_look_slicers)))
+    quick_look_video_bytes = pack_for_360p_webm(quick_look_frames)
+    _LOGGER.debug(f'生成预览视频 用时 {time.time() - start_at:.2f}s')
+
     return VideoFullWorkResult(face_seq, quick_look_video_bytes, scenes_ts_image, body_parts)
 
 
