@@ -32,7 +32,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     start_at = time.time()
     _LOGGER.debug(f'提取关键帧 {p}')
     keyframe_record_list = list(iter_keyframe_bgr24(p))
-    _LOGGER.debug(f'提取关键帧 用时 {time.time() - start_at:.2f}s')
+    _LOGGER.debug(f'提取关键帧 用时 {time.time() - start_at:.2f}s, 找到 {len(keyframe_record_list)} 帧')
 
     start_at = time.time()
     _LOGGER.debug(f'识别身体部位 {p}')
@@ -111,6 +111,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
         for start_at in concat_base_start_at
     ]
     quick_look_frames = list(itertools.chain(*map(lambda slicer: extract_frame_ts(p, slicer), quick_look_slicers)))
+    _LOGGER.debug(f'预览视频帧数, {len(quick_look_frames)}')
     quick_look_video_bytes = pack_for_360p_webm(quick_look_frames)
     _LOGGER.debug(f'生成预览视频 用时 {time.time() - start_at:.2f}s')
 
