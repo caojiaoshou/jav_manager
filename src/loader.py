@@ -1,4 +1,5 @@
 import io
+import time
 import typing as t
 from pathlib import Path
 
@@ -7,6 +8,8 @@ import cv2
 import numpy as np
 
 from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
+
+_cuda_option = {'hwaccel': 'cuvid', 'hwaccel_output_format': 'cuda'}
 
 
 def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) -> np.ndarray:
@@ -36,8 +39,9 @@ class FrameRecord(t.NamedTuple):
     bgr_array: np.ndarray
 
 
-def iter_keyframe_bgr24(video_path: Path) -> t.Generator[FrameRecord, None | bool, None]:
-    with av.open(video_path) as container:
+def iter_keyframe_bgr24(video_path: Path, cuda: bool = False) -> t.Generator[FrameRecord, None | bool, None]:
+    options = {} if not cuda else _cuda_option
+    with av.open(video_path, options=options) as container:
         # 防止文件损坏导致FFMPEG无法读取
         second_pass = 0
 
@@ -98,8 +102,9 @@ def calculate_frame_ts(ls: list[FrameTs], start_at_ts: float, duration: float) -
     return Slicer(keyframe_index, start_at_frame, end_at_frame)
 
 
-def extract_frame_ts(video_path: Path, slicer: Slicer) -> t.Generator[FrameRecord, None, None]:
-    with av.open(video_path) as container:
+def extract_frame_ts(video_path: Path, slicer: Slicer, cuda: bool = False) -> t.Generator[FrameRecord, None, None]:
+    options = {} if not cuda else _cuda_option
+    with av.open(video_path, options=options) as container:
         frame_start_at = 0
         for index, packet in enumerate(container.demux(video=0)):
             if index >= slicer.keyframe_index:
@@ -176,9 +181,44 @@ def get_video_duration(video_path: str) -> float:
         return 0.0
 
 
-if __name__ == '__main__':
+def _test():
     frame_ts_list = parse_frame_ts(VIDEO_FILE_FOR_TEST)
     ls = calculate_frame_ts(frame_ts_list, start_at_ts=18 * 60 + 1, duration=1.2)
     frame_record_list = list(extract_frame_ts(VIDEO_FILE_FOR_TEST, ls))
     b = pack_for_360p_webm(frame_record_list)
     (TEMP_STORAGE / 'test.webm').write_bytes(b)
+
+
+def _test_cuda():
+    cuda_start_at = time.time()
+    list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST, cuda=True))
+    cuda_cost = time.time() - cuda_start_at
+
+    cpu_start_at = time.time()
+    list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST, cuda=False))
+    cpu_cost = time.time() - cpu_start_at
+
+    print(f'key frame test, cuda cost: {cuda_cost:.2f}, cpu cost: {cpu_cost:.2f}')
+
+    frame_ts_list = parse_frame_ts(VIDEO_FILE_FOR_TEST)
+    ls = calculate_frame_ts(frame_ts_list, start_at_ts=18 * 60 + 1, duration=15)
+
+    cuda_start_at = time.time()
+    frame_record_list = list(extract_frame_ts(VIDEO_FILE_FOR_TEST, ls, True))
+    cuda_cost = time.time() - cuda_start_at
+
+    cpu_start_at = time.time()
+    frame_record_list = list(extract_frame_ts(VIDEO_FILE_FOR_TEST, ls, False))
+    cpu_cost = time.time() - cpu_start_at
+
+    print(f'frame test, cuda cost: {cuda_cost:.2f}, cpu cost: {cpu_cost:.2f}')
+
+
+def _find_decoders():
+    for i in av.codecs_available:
+        print(i)
+
+
+if __name__ == '__main__':
+    # _find_decoders()
+    _test_cuda()
