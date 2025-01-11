@@ -1,3 +1,4 @@
+import time
 import typing as t
 
 import cv2
@@ -8,7 +9,7 @@ from src.file_index import MODEL_STORAGE, VIDEO_FILE_FOR_TEST
 
 _MODEL_DIR = MODEL_STORAGE / 'insightface'
 _MODEL_DIR.mkdir(exist_ok=True)
-_FACE_ANALYSER = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+_FACE_ANALYSER = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider'],
                               root=_MODEL_DIR.absolute().__str__())
 _FACE_ANALYSER.prepare(ctx_id=0, det_size=(640, 640))
 
@@ -73,6 +74,10 @@ def _normalize_min_max(arr: np.ndarray) -> np.ndarray:
     return (arr - arr.min()) / (arr.max() - arr.min())
 
 
+class FaceNotFoundError(Exception):
+    ...
+
+
 def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetectionResult:
     # 确保至少有一个图像
     if not image_sequence:
@@ -90,7 +95,7 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
             female_face_records.append((frame_index, detected_female_faces[0]))
 
     if not female_face_records:
-        raise ValueError("No female faces detected")
+        raise FaceNotFoundError("No female faces detected")
 
     # 提取所有需要的数据
     detection_stores = np.array([face_record[1].det_score for face_record in female_face_records], dtype=np.float64)
@@ -165,11 +170,13 @@ def _test_detect():
     from src.loader import iter_keyframe_bgr24
 
     keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
+    start_at = time.time()
     out = select_best_female_face([f.bgr_array for f in keyframe_records])
-
+    cost = time.time() - start_at
+    print(f'frame_count: {len(keyframe_records)}, cost: {cost:.2f}, mean:{cost / len(keyframe_records):.2f}')
     cv2.imshow('', keyframe_records[out.frame_index].bgr_array)
     cv2.waitKey(0)
 
 
 if __name__ == '__main__':
-    _test_crop()
+    _test_detect()
