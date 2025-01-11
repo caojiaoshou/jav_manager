@@ -9,15 +9,16 @@ import numpy as np
 
 from src.body_part import process_frame_for_detections, BodyPartDetectionCollection
 from src.dao import VideoFace, VideoScene, VideoBodyPart, Videos, ProgressState
-from src.face import crop_and_rotate_face_into_square, select_best_female_face
+from src.face import crop_and_rotate_face_into_square, select_best_female_face, FaceNotFoundError
 from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, calculate_frame_ts, FrameRecord, \
     extract_frame_ts
+from src.logger import configure_logger
 from src.rmbg import get_foreground_mask
 from src.scene import create_frame_diff, FrameDiffRecord
-from src.logger import configure_logger
 
 _LOGGER = configure_logger('video')
+
 
 class VideoFullWorkResult(t.NamedTuple):
     faces: list[VideoFace]
@@ -27,7 +28,6 @@ class VideoFullWorkResult(t.NamedTuple):
 
 
 def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
-
     start_at = time.time()
     _LOGGER.debug(f'提取关键帧 {p}')
     keyframe_record_list = list(iter_keyframe_bgr24(p))
@@ -45,7 +45,6 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     _LOGGER.debug(f'计算视频帧差值 {p}')
     diff_list = create_frame_diff(keyframe_record_list)
     _LOGGER.debug(f'计算视频帧差值 用时 {time.time() - start_at:.2f}s')
-
 
     composite_list: list[tuple[FrameRecord, BodyPartDetectionCollection, FrameDiffRecord]] = [
         (i, j, k)
@@ -89,22 +88,26 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
         for record_tuple in composite_list
         if record_tuple[1].face.confidence >= 0.7
     ]
-    best_female_face = select_best_female_face(prob_female_face_frames)
-    face_target_frame = prob_female_face_frames[best_female_face.frame_index]
-    face_crop_image = crop_and_rotate_face_into_square(
-        np.dstack([face_target_frame, get_foreground_mask(face_target_frame)]),
-        best_female_face.best
-    )
-    _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
-
-    face = VideoFace(best_female_face.face_serial, best_female_face.age, face_target_frame, face_crop_image)
-
+    face_seq = []
+    try:
+        best_female_face = select_best_female_face(prob_female_face_frames)
+        face_target_frame = prob_female_face_frames[best_female_face.frame_index]
+        face_crop_image = crop_and_rotate_face_into_square(
+            np.dstack([face_target_frame, get_foreground_mask(face_target_frame)]),
+            best_female_face.best
+        )
+        _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
+        face = VideoFace(best_female_face.face_serial, best_female_face.age, face_target_frame, face_crop_image)
+        face_seq.append(face)
+    except FaceNotFoundError:
+        _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
+        _LOGGER.warning(f'未识别到女性面部 {p}')
     # 处理身体部位
     body_parts = []
     for part in ['butt', 'breast', 'pussy', 'feet', 'bar']:
         frame_record, *_ = nlargest(1, composite_list, key=lambda tup: tup[1].__getattribute__(part).confidence)[0]
         body_parts.append(VideoBodyPart(part, frame_record.start_at, frame_record.bgr_array))
-    return VideoFullWorkResult([face], quick_look_video_bytes, scenes_ts_image, body_parts)
+    return VideoFullWorkResult(face_seq, quick_look_video_bytes, scenes_ts_image, body_parts)
 
 
 def calculate_video_progress_state(video: Videos) -> ProgressState:
