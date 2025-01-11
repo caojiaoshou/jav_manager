@@ -132,6 +132,8 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
 
     # 返回结果
     best_face = DetectedFace.from_insightface_record(best_face_record)
+    if np.isnan(average_age):
+        raise FaceNotFoundError()
     res = FaceDetectionResult(best=best_face, frame_index=best_frame_index, age=average_age,
                               face_serial=weighted_mean_embedding)
     return res
