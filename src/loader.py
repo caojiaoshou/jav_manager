@@ -1,3 +1,4 @@
+import fractions
 import io
 import time
 import typing as t
@@ -39,20 +40,35 @@ class FrameRecord(t.NamedTuple):
     bgr_array: np.ndarray
 
 
-def iter_keyframe_bgr24(video_path: Path, cuda: bool = False) -> t.Generator[FrameRecord, None | bool, None]:
+def _core_iter_packet(video_path: Path, cuda: bool = False) -> t.Generator[
+    tuple[int, fractions.Fraction, av.Packet], None, None]:
+    """
+    抽取方法 对时间轴做特殊处理.有些视频packet没有duration.所以要推测时间
+    :return packet_index, start_at, packet
+    """
     options = {} if not cuda else _cuda_option
     with av.open(video_path, options=options) as container:
-        # 防止文件损坏导致FFMPEG无法读取
-        second_pass = 0
+        second_pass_dec = fractions.Fraction(0)
+        # 有些视频packet里边没有保存duration.取平均值
+        video_stream = container.streams.video[0]
+        avg_frame_duration = video_stream.time_base * video_stream.duration / video_stream.frames
+        for index, packet in enumerate(container.demux(video=0)):
+            yield index, second_pass_dec, packet
+            if packet.duration:
+                second_pass_dec += packet.duration * packet.time_base
+            else:
+                second_pass_dec += avg_frame_duration
 
-        for packet in container.demux(video=0):
-            if packet.is_keyframe:
-                if packet_frame_list := packet.decode():
-                    yield FrameRecord(
-                        float(second_pass),
-                        packet_frame_list[0].to_ndarray(format='bgr24')
-                    )
-            second_pass += packet.duration * packet.time_base
+
+def iter_keyframe_bgr24(video_path: Path, cuda: bool = False) -> t.Generator[FrameRecord, None | bool, None]:
+    for index, start_at, packet in _core_iter_packet(video_path, cuda):
+        if packet.is_keyframe:
+            # 这里返回的是列表.观测结果实际只有0或者1个帧
+            if packet_frame_list := packet.decode():
+                yield FrameRecord(
+                    float(start_at),
+                    packet_frame_list[0].to_ndarray(format='bgr24')
+                )
 
 
 class FrameTs(t.NamedTuple):
@@ -62,13 +78,10 @@ class FrameTs(t.NamedTuple):
 
 
 def parse_frame_ts(video_path: Path) -> list[FrameTs]:
-    res_list = []
-    with av.open(video_path) as container:
-        second_pass = 0
-        for frame_index, packet in enumerate(container.demux(video=0)):
-            res_list.append(FrameTs(frame_index, float(second_pass), is_keyframe=packet.is_keyframe))
-            second_pass += packet.duration * packet.time_base
-    return res_list
+    return [
+        FrameTs(frame_index, float(second_pass), packet.is_keyframe)
+        for frame_index, second_pass, packet in _core_iter_packet(video_path)
+    ]
 
 
 class Slicer(t.NamedTuple):
@@ -103,18 +116,14 @@ def calculate_frame_ts(ls: list[FrameTs], start_at_ts: float, duration: float) -
 
 
 def extract_frame_ts(video_path: Path, slicer: Slicer, cuda: bool = False) -> t.Generator[FrameRecord, None, None]:
-    options = {} if not cuda else _cuda_option
-    with av.open(video_path, options=options) as container:
-        frame_start_at = 0
-        for index, packet in enumerate(container.demux(video=0)):
-            if index >= slicer.keyframe_index:
-                packet_frame_list = packet.decode()
-                if (index >= slicer.start_at_index) and packet_frame_list:
-                    f = packet_frame_list[0].to_ndarray(format='bgr24')
-                    yield FrameRecord(float(frame_start_at), f)
-                if index >= slicer.end_at_index:
-                    break
-            frame_start_at += packet.duration * packet.time_base
+    for index, start_at, packet in _core_iter_packet(video_path, cuda):
+        if index >= slicer.keyframe_index:
+            packet_frame_list = packet.decode()
+            if (index >= slicer.start_at_index) and packet_frame_list:
+                f = packet_frame_list[0].to_ndarray(format='bgr24')
+                yield FrameRecord(float(start_at), f)
+            if index >= slicer.end_at_index:
+                break
 
 
 def resize_and_crop(image: np.ndarray, target_width: int, target_height: int) -> np.ndarray:
@@ -153,9 +162,24 @@ def resize_and_crop(image: np.ndarray, target_width: int, target_height: int) ->
 
 
 def pack_for_360p_webm(frame_record_list: list[FrameRecord]) -> bytes:
+    """
+    自动控制帧率
+    :param frame_record_list:
+    :return:
+    """
+    # 统计帧率, 由于实务有多重帧率的视频,而且视频是非连续切片.所以要推算帧率进行压缩
+    frame_start_at_array = np.array([f.start_at for f in frame_record_list], dtype=np.float32)
+    frame_diff = frame_start_at_array[1:] - frame_start_at_array[:-1]
+    q25 = np.quantile(frame_diff, 0.25)
+    q75 = np.quantile(frame_diff, 0.75)
+    lb = q25 - 1.5 * (q75 - q25)
+    ub = q75 + 1.5 * (q75 - q25)
+    frame_diff_2 = frame_diff[(frame_diff >= lb - 1e-5) & (frame_diff <= ub + 1e-5)]
+    fps = int(np.round(1.0 / np.mean(frame_diff_2), 0))
+
     with io.BytesIO() as buffer:
         with av.open(buffer, mode='w', format='webm') as container:
-            stream = container.add_stream('libvpx', 30)
+            stream = container.add_stream('libvpx', fps)
             stream.width = 640
             stream.height = 360
             stream.pix_fmt = 'yuv420p'
@@ -181,9 +205,9 @@ def get_video_duration(video_path: str) -> float:
         return 0.0
 
 
-def _test():
+def _test_extract_and_pack():
     frame_ts_list = parse_frame_ts(VIDEO_FILE_FOR_TEST)
-    ls = calculate_frame_ts(frame_ts_list, start_at_ts=18 * 60 + 1, duration=1.2)
+    ls = calculate_frame_ts(frame_ts_list, start_at_ts=18 * 60 + 1, duration=12)
     frame_record_list = list(extract_frame_ts(VIDEO_FILE_FOR_TEST, ls))
     b = pack_for_360p_webm(frame_record_list)
     (TEMP_STORAGE / 'test.webm').write_bytes(b)
@@ -220,5 +244,4 @@ def _find_decoders():
 
 
 if __name__ == '__main__':
-    # _find_decoders()
-    _test_cuda()
+    _test_extract_and_pack()
