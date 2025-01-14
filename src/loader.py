@@ -13,14 +13,31 @@ from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 _cuda_option = {'hwaccel': 'cuvid', 'hwaccel_output_format': 'cuda'}
 
 
+def insert_silence(samples, duration_in_seconds, sample_rate=16000):
+    """Insert silence into the audio samples."""
+    silence_length = int(duration_in_seconds * sample_rate)
+    silence = np.zeros(silence_length, dtype=np.float32)
+    return np.concatenate([samples, silence])
+
+
+def _create_silence(duration_in_seconds, sample_rate=16000):
+    """Insert silence into the audio samples."""
+    silence_length = int(duration_in_seconds * sample_rate)
+    silence = np.zeros(silence_length, dtype=np.float32)
+    return silence
+
+
 def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) -> np.ndarray:
+    samples = []
+    last_pts = None
     with av.open(file_path) as container:
-        audio_stream = [stream for stream in container.streams if stream.type == 'audio'][0]
+        audio_stream = next((stream for stream in container.streams if stream.type == 'audio'), None)
+        if not audio_stream:
+            raise ValueError("No audio stream found in the file.")
 
         resampler = av.AudioResampler(format='s16', layout='mono' if mono else audio_stream.layout.name,
                                       rate=sample_rate)
 
-        samples = []
         for packet in container.demux(audio_stream):
             try:
                 for frame in packet.decode():
@@ -29,8 +46,16 @@ def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) 
                     # Convert the frame to a NumPy array
                     array = frame[0].to_ndarray()
                     samples.append(array)
-            except Exception as e:
-                break
+
+            except av.error.InvalidDataError as e:
+                print(f"Warning: Invalid data encountered at timestamp {packet.pts}. Skipping this packet.")
+                if last_pts is not None:
+                    # Calculate the time difference between the last valid PTS and the current packet's PTS
+                    time_diff = (packet.pts - last_pts) * audio_stream.time_base
+                    samples.append(_create_silence(time_diff, sample_rate=sample_rate))
+                continue
+            finally:
+                last_pts = packet.pts
     samples_np = np.hstack(samples).astype(np.float32)
     return samples_np
 
@@ -243,5 +268,13 @@ def _find_decoders():
         print(i)
 
 
+def _test_audio():
+    sample_rate = 16000
+    start_at = time.time()
+    result = get_audio_samples_as_float32_array(VIDEO_FILE_FOR_TEST, sample_rate)
+    cost = time.time() - start_at
+    print(f'cost: {cost:.2f}, len: {result.shape[1] / sample_rate / 60:.2f}分钟')
+
+
 if __name__ == '__main__':
-    _test_extract_and_pack()
+    _test_audio()
