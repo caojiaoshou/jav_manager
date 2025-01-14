@@ -269,11 +269,22 @@ def _find_decoders():
 
 
 def _test_audio():
+    import pickle
+    from src.file_index import TEMP_STORAGE
     sample_rate = 16000
     start_at = time.time()
     result = get_audio_samples_as_float32_array(VIDEO_FILE_FOR_TEST, sample_rate)
     cost = time.time() - start_at
-    print(f'cost: {cost:.2f}, len: {result.shape[1] / sample_rate / 60:.2f}分钟')
+    print(f'解码 cost: {cost:.2f}, len: {result.shape[1] / sample_rate / 60:.2f}分钟')
+
+    pickle_start_at = time.time()
+    p = TEMP_STORAGE / 'test.pkl'
+    with open(p, 'wb') as io:
+        pickle.dump(result, io)
+    with open(p, 'rb') as io:
+        pickle.load(io)
+    print(f'pickle cost: {time.time() - pickle_start_at:.2f}, size:{p.stat().st_size / 1024 / 1024:.2f}MB')
+    p.unlink()
 
 
 if __name__ == '__main__':

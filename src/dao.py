@@ -101,13 +101,6 @@ class _Scenes(SQLModel, table=True):
     preview_path: pathlib.Path = Field(sa_column=Column(PathType))
 
 
-class _AudioSamplePickles(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
-    video_id: int = Field(index=True)
-    history_id: int = Field(index=True)
-    path: pathlib.Path
-
-
 class _BodyParts(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     video_id: int = Field(index=True)
