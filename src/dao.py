@@ -369,5 +369,15 @@ def delete_quick_look(video_id: int):
         sas.commit()
 
 
+def calculate_video_progress_state(video: Videos) -> ProgressState:
+    states = video.face_state, video.body_part_state, video.scene_state, video.quick_look_state
+    if all(map(lambda x: x == ProgressState.NOT_STARTED, states)):
+        return ProgressState.NOT_STARTED
+    elif all(map(lambda x: x == ProgressState.COMPLETED, states)):
+        return ProgressState.COMPLETED
+    else:
+        return ProgressState.IN_PROGRESS
+
+
 if __name__ == '__main__':
     print(list_videos())

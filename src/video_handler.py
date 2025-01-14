@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from src.body_part import process_frame_for_detections, BodyPartDetectionCollection
-from src.dao import VideoFace, VideoScene, VideoBodyPart, Videos, ProgressState
+from src.dao import VideoFace, VideoScene, VideoBodyPart
 from src.face import crop_and_rotate_face_into_square, select_best_female_face, FaceNotFoundError
 from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, calculate_frame_ts, FrameRecord, \
@@ -136,16 +136,6 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     _LOGGER.debug(f'生成预览视频 用时 {time.time() - start_at:.2f}s')
 
     return VideoFullWorkResult(face_seq, quick_look_video_bytes, scenes_ts_image, body_parts)
-
-
-def calculate_video_progress_state(video: Videos) -> ProgressState:
-    states = video.face_state, video.body_part_state, video.scene_state, video.quick_look_state
-    if all(map(lambda x: x == ProgressState.NOT_STARTED, states)):
-        return ProgressState.NOT_STARTED
-    elif all(map(lambda x: x == ProgressState.COMPLETED, states)):
-        return ProgressState.COMPLETED
-    else:
-        return ProgressState.IN_PROGRESS
 
 
 if __name__ == '__main__':

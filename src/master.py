@@ -3,11 +3,11 @@ import re
 import time
 
 from src.dao import list_videos, add_video, delete_video, ProgressState, update_face, update_scene, update_body_part, \
-    update_quick_look, delete_quick_look, delete_body_part, delete_face, delete_scene
+    update_quick_look, delete_quick_look, delete_body_part, delete_face, delete_scene, calculate_video_progress_state
 from src.file_index import search_local_videos
 from src.loader import get_video_duration
 from src.logger import configure_logger
-from src.video_handler import video_full_work, calculate_video_progress_state
+from src.video_handler import video_full_work
 
 _LOGGER = configure_logger('master')
 
