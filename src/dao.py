@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from pydantic import ConfigDict
 from sqlalchemy import TypeDecorator, String, Column, BLOB
-from sqlmodel import SQLModel, Field, create_engine, Session, select, all_, any_
+from sqlmodel import SQLModel, Field, create_engine, Session, select, and_, or_
 
 from src.file_index import DATABASE_STORAGE
 
@@ -190,7 +190,7 @@ def page_videos_with_state(
     match video_state:
         case ProgressState.IN_PROGRESS:
             filters.append(
-                any_(
+                or_(
                     VideoInfo.face_state == ProgressState.IN_PROGRESS,
                     VideoInfo.scene_state == ProgressState.IN_PROGRESS,
                     VideoInfo.body_part_state == ProgressState.IN_PROGRESS,
@@ -199,7 +199,7 @@ def page_videos_with_state(
             )
         case ProgressState.NOT_STARTED:
             filters.append(
-                all_(
+                and_(
                     VideoInfo.face_state == ProgressState.NOT_STARTED,
                     VideoInfo.scene_state == ProgressState.NOT_STARTED,
                     VideoInfo.body_part_state == ProgressState.NOT_STARTED,
@@ -208,7 +208,7 @@ def page_videos_with_state(
             )
         case ProgressState.COMPLETED:
             filters.append(
-                all_(
+                and_(
                     VideoInfo.face_state == ProgressState.COMPLETED,
                     VideoInfo.scene_state == ProgressState.COMPLETED,
                     VideoInfo.body_part_state == ProgressState.COMPLETED,

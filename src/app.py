@@ -36,13 +36,14 @@ def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
         return []
 
     else:
+        video_id_list = [v.id for v in finish_videos]
         res_ls = []
         face_mapping: t.DefaultDict[int, list[dao.VideoFaces]] = defaultdict(list)
-        for face_record in dao.query_face_by_video([v for v in finish_videos]):
+        for face_record in dao.query_face_by_video(video_id_list):
             face_mapping[face_record.video_id].append(face_record)
 
         quick_mapping: t.DefaultDict[int, list[dao.VideoQuickLooks]] = defaultdict(list)
-        for quick_record in dao.query_quick_look_by_video([v for v in finish_videos]):
+        for quick_record in dao.query_quick_look_by_video(video_id_list):
             quick_mapping[quick_record.video_id].append(quick_record)
 
         for video_record in finish_videos:
@@ -70,20 +71,20 @@ def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
         return res_ls
 
 
-@_API_ROUTER.get('/face-image/{path}')
+@_API_ROUTER.get('/face-image/{path}', response_class=FileResponse)
 def _face_image(path: str = Path(...)) -> FileResponse:
     record = dao.query_face_by_pid(path)
     if record:
-        return FileResponse(record.preview_path)
+        return FileResponse(record.sticker_path)
     else:
         raise HTTPException(status_code=404)
 
 
-@_API_ROUTER.get('/quick-look/{path}')
+@_API_ROUTER.get('/quick-look/{path}', response_class=FileResponse)
 def _quick_look(path: str = Path(...)) -> FileResponse:
     record = dao.query_quick_look_by_pid(path)
     if record:
-        return FileResponse(record.preview_path)
+        return FileResponse(record.path)
     else:
         raise HTTPException(status_code=404)
 
@@ -91,7 +92,7 @@ def _quick_look(path: str = Path(...)) -> FileResponse:
 APP = FastAPI()
 
 mimetypes.add_type('application/javascript', '.js')
-APP.add_api_route('/api', _API_ROUTER)
+APP.include_router(_API_ROUTER, prefix='/api')
 
 
 @APP.get('/', response_class=FileResponse)
