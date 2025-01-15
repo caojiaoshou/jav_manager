@@ -11,7 +11,7 @@ import numpy as np
 from pydantic import ConfigDict
 from sqlalchemy import TypeDecorator, String, Column, BLOB
 from sqlmodel import SQLModel, Field, create_engine, Session, select, and_, or_
-
+from src.utils import write_image_to_file
 from src.file_index import DATABASE_STORAGE
 
 
@@ -265,9 +265,9 @@ def update_face(video_id: int, face_sequence: t.Iterable[VideoFaceParams]):
             sas.commit()
             for face_record in face_sequence:
                 sticker_path = _MAJOR_STORAGE / f'{video_name}_{uuid.uuid4().hex}.webp'
-                cv2.imwrite(sticker_path.absolute().__str__(), face_record.crop_image)
+                write_image_to_file(sticker_path, face_record.crop_image)
                 raw_path = _MINOR_STORAGE / f'{video_name}_{uuid.uuid4().hex}.webp'
-                cv2.imwrite(raw_path.absolute().__str__(), face_record.frame)
+                write_image_to_file(sticker_path, face_record.frame)
                 face_ist = VideoFaces(
                     video_id=video_id,
                     history_id=history_ist.id,
@@ -338,7 +338,7 @@ def update_scene(video_id: int, scene_sequence: t.Iterable[VideoSceneParams]):
             sas.commit()
             for scene_record in scene_sequence:
                 preview_path = _MINOR_STORAGE / f'{video_name}_{uuid.uuid4().hex}.webp'
-                cv2.imwrite(preview_path.absolute().__str__(), scene_record.frame)
+                write_image_to_file(preview_path, scene_record.frame)
                 scene_ist = VideoScenes(
                     video_id=video_id,
                     history_id=history_ist.id,
@@ -406,7 +406,7 @@ def update_body_part(video_id: int, body_part_sequence: t.Iterable[VideoBodyPart
             sas.commit()
             for body_part_record in body_part_sequence:
                 frame_path = _MINOR_STORAGE / f'{video_name}_{uuid.uuid4().hex}.webp'
-                cv2.imwrite(frame_path.absolute().__str__(), body_part_record.frame)
+                write_image_to_file(frame_path, body_part_record.frame)
                 body_part_ist = VideoBodyParts(
                     video_id=video_id,
                     history_id=history_ist.id,
