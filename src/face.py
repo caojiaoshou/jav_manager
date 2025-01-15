@@ -81,7 +81,7 @@ class FaceNotFoundError(Exception):
 def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetectionResult:
     # 确保至少有一个图像
     if not image_sequence:
-        raise ValueError("Image sequence is empty")
+        raise FaceNotFoundError("Image sequence is empty")
 
     female_face_records = []
     for frame_index, frame_image in enumerate(image_sequence):
