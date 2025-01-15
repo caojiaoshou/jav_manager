@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from src.body_part import process_frame_for_detections, BodyPartDetectionCollection
-from src.dao import VideoFace, VideoScene, VideoBodyPart
+from src.dao import VideoFaceParams, VideoSceneParams, VideoBodyPartParams
 from src.face import crop_and_rotate_face_into_square, select_best_female_face, FaceNotFoundError
 from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, calculate_frame_ts, FrameRecord, \
@@ -22,10 +22,10 @@ _LOGGER = configure_logger('video')
 
 
 class VideoFullWorkResult(t.NamedTuple):
-    faces: list[VideoFace]
+    faces: list[VideoFaceParams]
     quick_look: bytes
-    scenes: list[VideoScene]
-    body_parts: list[VideoBodyPart]
+    scenes: list[VideoSceneParams]
+    body_parts: list[VideoBodyPartParams]
 
 
 def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
@@ -74,7 +74,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
 
     # 处理预览时间轴
     scenes_ts_image = [
-        VideoScene(record.start_at, record.bgr_array)
+        VideoSceneParams(record.start_at, record.bgr_array)
         for record in keyframe_record_list
         if record.start_at in concat_base_start_at
     ]
@@ -96,7 +96,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
             best_female_face.best
         )
         _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
-        face = VideoFace(best_female_face.face_serial, best_female_face.age, face_target_frame, face_crop_image)
+        face = VideoFaceParams(best_female_face.face_serial, best_female_face.age, face_target_frame, face_crop_image)
         face_seq.append(face)
     except FaceNotFoundError:
         _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
@@ -105,7 +105,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     body_parts = []
     for part in ['butt', 'breast', 'pussy', 'feet', 'bar']:
         frame_record, *_ = nlargest(1, composite_list, key=lambda tup: tup[1].__getattribute__(part).confidence)[0]
-        body_parts.append(VideoBodyPart(part, frame_record.start_at, frame_record.bgr_array))
+        body_parts.append(VideoBodyPartParams(part, frame_record.start_at, frame_record.bgr_array))
 
     # 调整处理顺序,并确保释放内存,看看能不能减轻内存占用
     del keyframe_record_list

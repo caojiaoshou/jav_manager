@@ -1,4 +1,6 @@
-import pathlib
+import re
+import datetime
+import hashlib
 import re
 import time
 
@@ -33,10 +35,6 @@ def _sanitize_name(name: str) -> str:
     return end if end else name
 
 
-def _is_video_valid(p: pathlib.Path) -> bool:
-    return get_video_duration(p) >= 60 * 4
-
-
 def prepare_videos():
     current_local_mapper = {local_path.absolute(): dir_name for dir_name, local_path in search_local_videos()}
     _LOGGER.info(f'本地共 {len(current_local_mapper)} 个视频')
@@ -46,8 +44,20 @@ def prepare_videos():
 
     for local_path, dir_name in current_local_mapper.items():
         if local_path not in current_db_mapper:
-            if _is_video_valid(local_path):
-                add_video(_sanitize_name(dir_name), local_path)
+            video_duration = get_video_duration(local_path)
+            is_video_valid = video_duration >= 60 * 4
+
+            if is_video_valid:
+                video_hash = hashlib.md5(local_path.read_bytes()).hexdigest()
+                add_video(
+                    _sanitize_name(dir_name),
+                    local_path,
+                    datetime.datetime.fromtimestamp(local_path.stat().st_ctime),
+                    video_duration,
+                    video_hash,
+                    local_path.stat().st_size
+                )
+
                 _LOGGER.info(f'往数据库添加了 {local_path}')
             else:
                 _LOGGER.warning(f'{local_path} 不符合标准，跳过')
