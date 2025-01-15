@@ -267,7 +267,7 @@ def update_face(video_id: int, face_sequence: t.Iterable[VideoFaceParams]):
                 sticker_path = _MAJOR_STORAGE / f'{video_name}_{uuid.uuid4().hex}.webp'
                 write_image_to_file(sticker_path, face_record.crop_image)
                 raw_path = _MINOR_STORAGE / f'{video_name}_{uuid.uuid4().hex}.webp'
-                write_image_to_file(sticker_path, face_record.frame)
+                write_image_to_file(raw_path, face_record.frame)
                 face_ist = VideoFaces(
                     video_id=video_id,
                     history_id=history_ist.id,
