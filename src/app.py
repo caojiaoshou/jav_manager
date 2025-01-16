@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 
 import src.dao as dao
 from src.file_index import GUI_STORAGE
+from src.utils import create_webp_b64
 
 _API_ROUTER = APIRouter()
 
@@ -77,6 +78,53 @@ def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
 
             res_ls.append(item)
         return res_ls
+
+
+class VideoTsRequest(BaseModel):
+    video_pid: str
+
+
+class VideoTsItem(BaseModel):
+    ts: float
+    preview: str
+    reason: str
+
+
+class VideoTsResponse(BaseModel):
+    ts_list: list[VideoTsItem]
+
+
+@_API_ROUTER.post('/video-ts', response_model=VideoTsResponse)
+def _video_ts(body: VideoTsRequest) -> VideoTsResponse:
+    video_ist = dao.query_video_by_pid(body.video_pid)
+    if not video_ist:
+        raise HTTPException(status_code=404)
+
+    res_maybe_repeat = []
+    for scene_ist in dao.query_scene_by_video([video_ist.id]):
+        res_maybe_repeat.append(
+            VideoTsItem(ts=scene_ist.start_at, preview=create_webp_b64(scene_ist.preview_path), reason='scene')
+        )
+
+    for body_ist in dao.query_body_part_by_video([video_ist.id]):
+        res_maybe_repeat.append(
+            VideoTsItem(ts=body_ist.start_at, preview=create_webp_b64(body_ist.frame_path), reason=body_ist.part)
+        )
+
+    face_list = dao.query_face_by_video([video_ist.id])
+    for face_ist in face_list:
+        res_maybe_repeat.append(
+            VideoTsItem(ts=0, preview=create_webp_b64(face_ist.preview_path), reason='face')
+        )
+
+    # 每10秒最多一帧
+    mapping = defaultdict(list)
+    for r in res_maybe_repeat:
+        mapping[int(r.ts) // 10].append(r)
+
+    final_ls = [v_ls[0] for k, v_ls in mapping.items()]
+    final_ls.sort(key=lambda x: x.ts)
+    return VideoTsResponse(ts_list=final_ls)
 
 
 @_API_ROUTER.get('/face-image/{path}', response_class=FileResponse)
