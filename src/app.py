@@ -6,7 +6,7 @@ from collections import defaultdict
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException, APIRouter, Path
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 import src.dao as dao
 from src.file_index import GUI_STORAGE
@@ -26,6 +26,14 @@ class PreviewItem(BaseModel):
     age: float
     duration: float
     name: str
+
+    @field_validator('age')
+    @classmethod
+    def control_age(cls, v):
+        if v < 0 or v > 100:
+            return 0
+        else:
+            return v
 
 
 @_API_ROUTER.post('/list-preview', response_model=list[PreviewItem])
