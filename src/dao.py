@@ -6,13 +6,13 @@ import threading
 import typing as t
 import uuid
 
-import cv2
 import numpy as np
 from pydantic import ConfigDict
 from sqlalchemy import TypeDecorator, String, Column, BLOB
 from sqlmodel import SQLModel, Field, create_engine, Session, select, and_, or_
-from src.utils import write_image_to_file
+
 from src.file_index import DATABASE_STORAGE
+from src.utils import write_image_to_file
 
 
 class PathType(TypeDecorator):
@@ -220,7 +220,7 @@ def page_videos_with_state(
         case _:
             raise ValueError(f'{video_state=}')
 
-    query = select(VideoInfo).filter(*filters)
+    query = select(VideoInfo).filter(*filters).order_by(VideoInfo.file_create_at.desc())
 
     if limit is not None:
         query = query.limit(limit)
