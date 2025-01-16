@@ -232,9 +232,15 @@ def page_videos_with_state(
     return rt
 
 
-def query_video(video_id_seq: t.Sequence[int]) -> list[VideoInfo]:
+def query_video_by_bd_id(video_id_seq: t.Sequence[int]) -> list[VideoInfo]:
     with _use_session() as session:
         rt = session.exec(select(VideoInfo).filter(VideoInfo.id.in_(video_id_seq))).all()
+    return rt
+
+
+def query_video_by_pid(video_pid: str) -> VideoInfo:
+    with _use_session() as session:
+        rt = session.exec(select(VideoInfo).filter(VideoInfo.pid == video_pid)).one()
     return rt
 
 

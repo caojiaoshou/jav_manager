@@ -97,6 +97,15 @@ def _quick_look(path: str = Path(...)) -> FileResponse:
         raise HTTPException(status_code=404)
 
 
+@_API_ROUTER.get('/video-full/{path}', response_class=FileResponse)
+def _video_full(path: str = Path(...)) -> FileResponse:
+    record = dao.query_video_by_pid(path)
+    if record.file_path.exists():
+        return FileResponse(record.file_path)
+    else:
+        raise HTTPException(status_code=404)
+
+
 APP = FastAPI()
 
 mimetypes.add_type('application/javascript', '.js')
