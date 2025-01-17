@@ -142,13 +142,22 @@ def calculate_frame_ts(ls: list[FrameTs], start_at_ts: float, duration: float) -
 
 def extract_frame_ts(video_path: Path, slicer: Slicer, cuda: bool = False) -> t.Generator[FrameRecord, None, None]:
     for index, start_at, packet in _core_iter_packet(video_path, cuda):
+        last_frame_decoded = None
         if index >= slicer.keyframe_index:
-            packet_frame_list = packet.decode()
-            if (index >= slicer.start_at_index) and packet_frame_list:
-                f = packet_frame_list[0].to_ndarray(format='bgr24')
-                yield FrameRecord(float(start_at), f)
-            if index >= slicer.end_at_index:
+            if index > slicer.end_at_index:
                 break
+            try:
+                packet_frame_list = packet.decode()
+                if (index >= slicer.start_at_index) and packet_frame_list:
+                    f = packet_frame_list[0].to_ndarray(format='bgr24')
+                    last_frame_decoded = f
+                    yield FrameRecord(float(start_at), f)
+            except av.error.InvalidDataError as e:
+                print(f"Warning: Invalid data encountered at timestamp {packet.pts}. Skipping this packet.")
+                if not last_frame_decoded:
+                    continue
+                else:
+                    yield FrameRecord(float(start_at), last_frame_decoded)
 
 
 def resize_and_crop(image: np.ndarray, target_width: int, target_height: int) -> np.ndarray:
