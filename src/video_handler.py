@@ -17,8 +17,17 @@ from src.loader import iter_keyframe_bgr24, pack_for_360p_webm, parse_frame_ts, 
 from src.logger import configure_logger
 from src.rmbg import get_foreground_mask
 from src.scene import create_frame_diff, FrameDiffRecord
+from src.utils import thumbnail_image
 
 _LOGGER = configure_logger('video')
+
+
+def thumbnail_to_1080p(frame_record: FrameRecord) -> FrameRecord:
+    return FrameRecord(
+        frame_record.start_at,
+        # 适配不同比例,只限制高度
+        thumbnail_image(frame_record.bgr_array, None, 1080)
+    )
 
 
 class VideoFullWorkResult(t.NamedTuple):
@@ -40,7 +49,8 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
         original_key_frame_count += 1
         if keyframe_record.start_at > preview_start_at + 1.4:
             preview_start_at = keyframe_record.start_at
-            keyframe_record_list.append(keyframe_record)
+            # 4K爆内存
+            keyframe_record_list.append(thumbnail_to_1080p(keyframe_record))
     _LOGGER.debug(
         f'提取关键帧 用时 {time.time() - start_at:.2f}s, 找到 {original_key_frame_count} 帧,保留 {len(keyframe_record_list)} 帧')
 
@@ -134,7 +144,8 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
             total_extract_frame_count += 1
             if frame.start_at > previous_start_at + 0.030:  # 这是一个取巧计算 fps30是0.033一帧. fps60是0.017. 这样大概可以确保实际帧率约为30fps
                 previous_start_at = frame.start_at
-                quick_look_frames.append(frame)
+                # 4K爆内存
+                quick_look_frames.append(thumbnail_to_1080p(frame))
     _LOGGER.debug(f'总共提取 {total_extract_frame_count} 帧, 保留 {len(quick_look_frames)} 帧')
     quick_look_video_bytes = pack_for_360p_webm(quick_look_frames)
     _LOGGER.debug(f'生成预览视频 用时 {time.time() - start_at:.2f}s')
