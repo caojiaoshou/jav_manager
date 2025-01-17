@@ -1,3 +1,4 @@
+import pathlib
 import time
 import typing as t
 
@@ -119,11 +120,14 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
     valid_mask = np.where(similarity_scores > similarity_scores.mean() - similarity_scores.std(), 1, 0)
     embedding_weights = final_confidences * valid_mask
 
+    embedding_weight_sum  = embedding_weights.sum()
+    if embedding_weight_sum <= 0:
+        raise FaceNotFoundError()
     # 计算平均年龄
-    average_age = (embedding_weights * ages).sum() / embedding_weights.sum()
+    average_age = (embedding_weights * ages).sum() / embedding_weight_sum
 
     # 计算人脸向量
-    weighted_mean_embedding = (embeddings.T * embedding_weights).sum(axis=1) / embedding_weights.sum()
+    weighted_mean_embedding = (embeddings.T * embedding_weights).sum(axis=1) / embedding_weight_sum
 
     # 获取最佳人脸
     sorted_indices = np.argsort(final_confidences)
@@ -170,8 +174,8 @@ def _test_crop():
 
 def _test_detect():
     from src.loader import iter_keyframe_bgr24
-
-    keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
+    # keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
+    keyframe_records = list(iter_keyframe_bgr24(pathlib.Path(r'E:\L3\FC2 PPV 1422052 ※期間限定【個人】要介護の旦那を持つ爆乳妻が車内で他人棒に中出しされる.mp4')))
     start_at = time.time()
     out = select_best_female_face([f.bgr_array for f in keyframe_records])
     cost = time.time() - start_at
