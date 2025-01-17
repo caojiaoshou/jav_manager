@@ -182,7 +182,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             content={'message': exc.detail},
         )
     elif exc.status_code == 404:
-        return FileResponse(GUI_STORAGE / '404.html')
+        return FileResponse(GUI_STORAGE / 'index.html')
 
 
 if __name__ == '__main__':
