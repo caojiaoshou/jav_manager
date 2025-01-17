@@ -82,11 +82,15 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     # 处理面部识别
     start_at = time.time()
     _LOGGER.debug(f'识别面部 {p}')
-    prob_female_face_frames = [
-        record_tuple[0].bgr_array
-        for record_tuple in composite_list
-        if record_tuple[1].face.confidence >= 0.7
-    ]
+    prob_female_face_frames = []
+    for i in np.linspace(0.7, 0.3, 8):
+        prob_female_face_frames = [
+            record_tuple[0].bgr_array
+            for record_tuple in composite_list
+            if record_tuple[1].face.confidence >= float(i)
+        ]
+        if prob_female_face_frames:
+            break
     face_seq = []
     try:
         best_female_face = select_best_female_face(prob_female_face_frames)
