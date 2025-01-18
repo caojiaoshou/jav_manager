@@ -4,7 +4,7 @@ from silero_vad import load_silero_vad, get_speech_timestamps
 
 from src.config import Middleware
 
-_VAD_MODEL = load_silero_vad(onnx=True)
+_VAD_MODEL = load_silero_vad()
 
 
 def create_vad(sample_array: np.ndarray) -> list[Middleware]:
