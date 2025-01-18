@@ -11,6 +11,7 @@ from pydantic import ConfigDict
 from sqlalchemy import TypeDecorator, String, Column, BLOB
 from sqlmodel import SQLModel, Field, create_engine, Session, select, and_, or_
 
+from src.config import Middleware
 from src.file_index import DATABASE_STORAGE
 from src.utils import write_image_to_file
 
@@ -544,6 +545,67 @@ def calculate_video_progress_state(video: VideoInfo) -> ProgressState:
 
 def calculate_audio_progress_state(video: VideoInfo) -> ProgressState:
     return _calculate_state(video, 'audio')
+
+
+def update_srt(video_id: int, middleware_seq: t.Sequence[Middleware]):
+    with _use_session() as sas:
+        video_ist: VideoInfo = sas.exec(select(VideoInfo).filter(VideoInfo.id == video_id)).one()
+        if calculate_audio_progress_state(video_ist) == ProgressState.IN_PROGRESS:
+            raise RacingProgressError('audio block')
+        else:
+            video_ist.vad_state = ProgressState.IN_PROGRESS
+            video_ist.asr_state = ProgressState.IN_PROGRESS
+            video_ist.translate_state = ProgressState.IN_PROGRESS
+            sas.commit()
+            sas.flush(video_ist)
+
+            history_ist = SlaveHistory(video_id=video_id, processor='srt')
+            sas.add(history_ist)
+            sas.commit()
+            sas.flush(history_ist)
+
+            for middleware in middleware_seq:
+                srt_ist = VideoSpeeches(
+                    video_id=video_id,
+                    history_id=history_ist.id,
+                    start_at=middleware.start_at,
+                    end_at=middleware.end_at,
+                    asr_text=middleware.transcribe_text,
+                    translate_text=middleware.translate_text
+                )
+                sas.add(srt_ist)
+                sas.commit()
+
+            video_ist.vad_state = ProgressState.COMPLETED
+            video_ist.asr_state = ProgressState.COMPLETED
+            video_ist.translate_state = ProgressState.COMPLETED
+            sas.commit()
+
+            history_ist.release_at = datetime.datetime.now()
+            history_ist.result = 'success'
+            sas.commit()
+
+
+def query_srt_by_video(video_id_seq: t.Sequence[int]) -> list[VideoSpeeches]:
+    with _use_session() as sas:
+        rt = sas.exec(select(VideoSpeeches).filter(VideoSpeeches.video_id.in_(video_id_seq))).all()
+        return rt
+
+
+def delete_srt(video_id: int):
+    with _use_session() as sas:
+        video_ist: VideoInfo = sas.exec(select(VideoInfo).filter(VideoInfo.id == video_id)).one()
+        video_ist.vad_state = ProgressState.IN_PROGRESS
+        video_ist.asr_state = ProgressState.IN_PROGRESS
+        video_ist.translate_state = ProgressState.IN_PROGRESS
+        sas.commit()
+        for srt_ist in sas.exec(select(VideoSpeeches).filter(VideoSpeeches.video_id == video_id)).all():
+            sas.delete(srt_ist)
+        sas.commit()
+        video_ist.vad_state = ProgressState.NOT_STARTED
+        video_ist.asr_state = ProgressState.NOT_STARTED
+        video_ist.translate_state = ProgressState.NOT_STARTED
+        sas.commit()
 
 
 if __name__ == '__main__':

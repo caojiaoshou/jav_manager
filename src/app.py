@@ -27,7 +27,7 @@ class PreviewItem(BaseModel):
     age: float
     duration: float
     name: str
-    srt_ready:bool
+    srt_ready: bool
 
     @field_validator('age')
     @classmethod
@@ -75,7 +75,7 @@ def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
                 age=age_value,
                 duration=video_record.file_duration_in_second,
                 name=video_record.file_path.with_suffix('').name,
-                srt_ready = dao.calculate_audio_progress_state(video_record)
+                srt_ready=dao.calculate_audio_progress_state(video_record)
             )
 
             res_ls.append(item)
@@ -92,8 +92,20 @@ class VideoTsItem(BaseModel):
     reason: str
 
 
+class SrtText(BaseModel):
+    lang: str
+    text: str
+
+
+class SrtItem(BaseModel):
+    start_at: float
+    end_at: float
+    texts: list[SrtText]
+
+
 class VideoTsResponse(BaseModel):
     ts_list: list[VideoTsItem]
+    srt_list: list[SrtItem]
 
 
 @_API_ROUTER.post('/video-ts', response_model=VideoTsResponse)
@@ -124,9 +136,27 @@ def _video_ts(body: VideoTsRequest) -> VideoTsResponse:
     for r in res_maybe_repeat:
         mapping[int(r.ts) // 10].append(r)
 
-    final_ls = [v_ls[0] for k, v_ls in mapping.items()]
-    final_ls.sort(key=lambda x: x.ts)
-    return VideoTsResponse(ts_list=final_ls)
+    seek_ls = [v_ls[0] for k, v_ls in mapping.items()]
+    seek_ls.sort(key=lambda x: x.ts)
+
+    srt_ls = []
+    srt_dao_ls = dao.query_srt_by_video([video_ist.id])
+    for srt_ist in srt_dao_ls:
+        text_list = []
+        if srt_ist.asr_text:
+            text_list.append(SrtText(lang='ja-JP', text=srt_ist.asr_text))
+        if srt_ist.translate_text:
+            text_list.append(SrtText(lang='zh-CN', text=srt_ist.translate_text))
+        srt_ls.append(
+            SrtItem(
+                start_at=srt_ist.start_at,
+                end_at=srt_ist.end_at,
+                texts=srt_ist
+            )
+        )
+    srt_ls.sort(key=lambda x: x.start_at)
+
+    return VideoTsResponse(ts_list=seek_ls, srt_list=srt_ls)
 
 
 @_API_ROUTER.get('/face-image/{path}', response_class=FileResponse)

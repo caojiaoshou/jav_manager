@@ -13,7 +13,7 @@ from src.vad import create_vad
 _logger = configure_logger('audio')
 
 
-def full_work(p_todo: pathlib.Path):
+def audio_full_work(p_todo: pathlib.Path) -> list[Middleware]:
     # 文件IO
     io_start_at = time.time()
     audio_array = get_audio_samples_as_float32_array(p_todo)
@@ -35,15 +35,18 @@ def full_work(p_todo: pathlib.Path):
     translate_result = translate_list(to_trans)
     map_list = [Middleware(*raw[0:3], trans) for raw, trans in zip(transcribe_result, translate_result)]
     _logger.debug(f'translate cost {time.time() - translate_start_at:.2f}s')
+    return map_list
 
-    # 输出字幕
-    srt_content = create_srt_content(map_list)
 
-    srt_path = pathlib.Path(p_todo).with_suffix('.srt')
-    srt_path.write_text(srt_content, encoding='utf-8')
+def _test():
+    ls = VIDEO_DIR_FOR_TEST.glob('*.mp4')
+    for p in ls:
+        middle_list = audio_full_work(p)
+        # 输出字幕
+        srt_content = create_srt_content(middle_list)
+        srt_path = pathlib.Path(p).with_suffix('.srt')
+        srt_path.write_text(srt_content, encoding='utf-8')
 
 
 if __name__ == '__main__':
-    ls = VIDEO_DIR_FOR_TEST.glob('*.mp4')
-    for p in ls:
-        full_work(p)
+    _test()

@@ -4,6 +4,7 @@ import re
 import time
 
 import src.dao as dao
+from src.audio_handler import audio_full_work
 from src.file_index import search_local_videos
 from src.loader import get_video_duration
 from src.logger import configure_logger
@@ -99,9 +100,32 @@ def handle_views():
                 raise ValueError(f'unknown progress state {video_progress_state_value}')
 
 
+def handle_srt():
+    for video_ist in dao.list_videos():
+        audio_state = dao.calculate_audio_progress_state(video_ist)
+        match audio_state:
+            case dao.ProgressState.NOT_STARTED:
+                _LOGGER.info(f'开始处理 {video_ist.file_path} 的字幕')
+                start_at = time.time()
+                middle_ware_ls = audio_full_work(video_ist.file_path)
+                dao.update_srt(video_ist.id, middle_ware_ls)
+                _LOGGER.info(f'完成处理 {video_ist.file_path} 的字幕 用时 {time.time() - start_at:.2f}s')
+            case dao.ProgressState.IN_PROGRESS:
+                _LOGGER.warning(f'开始删除 {video_ist.file_path} 的字幕.可能是由于此前错误退出')
+                start_at = time.time()
+                dao.delete_srt(video_ist.id)
+                _LOGGER.warning(f'完成删除 {video_ist.file_path} 的字幕 用时 {time.time() - start_at:.2f}s')
+            case dao.ProgressState.COMPLETED:
+                _LOGGER.info(f'忽略 {video_ist.file_path} 此前处理完成')
+                continue
+            case _:
+                _LOGGER.error(f'未知的进度状态 {audio_state}')
+                raise ValueError(f'unknown progress state {audio_state}')
+
+
 def list_finish_views() -> list[id]:
     return [r.id for r in dao.list_videos() if dao.calculate_video_progress_state(r) == dao.ProgressState.COMPLETED]
 
 
 if __name__ == '__main__':
-    handle_views()
+    handle_srt()
