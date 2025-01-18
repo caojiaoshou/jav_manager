@@ -75,7 +75,7 @@ def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
                 age=age_value,
                 duration=video_record.file_duration_in_second,
                 name=video_record.file_path.with_suffix('').name,
-                srt_ready=dao.calculate_audio_progress_state(video_record)
+                srt_ready=dao.calculate_audio_progress_state(video_record) == dao.ProgressState.COMPLETED
             )
 
             res_ls.append(item)

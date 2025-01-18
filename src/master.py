@@ -102,6 +102,10 @@ def handle_views():
 
 def handle_srt():
     for video_ist in dao.list_videos():
+        video_state = dao.calculate_video_progress_state(video_ist)
+        if video_state != dao.ProgressState.COMPLETED:
+            continue
+
         audio_state = dao.calculate_audio_progress_state(video_ist)
         match audio_state:
             case dao.ProgressState.NOT_STARTED:
