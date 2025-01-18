@@ -86,14 +86,21 @@ def _core_iter_packet(video_path: Path, cuda: bool = False) -> t.Generator[
 
 
 def iter_keyframe_bgr24(video_path: Path, cuda: bool = False) -> t.Generator[FrameRecord, None | bool, None]:
+    last_iter_frame = None
     for index, start_at, packet in _core_iter_packet(video_path, cuda):
         if packet.is_keyframe:
-            # 这里返回的是列表.观测结果实际只有0或者1个帧
-            if packet_frame_list := packet.decode():
-                yield FrameRecord(
-                    float(start_at),
-                    packet_frame_list[0].to_ndarray(format='bgr24')
-                )
+            try:
+                # 这里返回的是列表.观测结果实际只有0或者1个帧
+                if packet_frame_list := packet.decode():
+                    packet_frame = packet_frame_list[0].to_ndarray(format='bgr24')
+                    record = FrameRecord(float(start_at), packet_frame)
+                    last_iter_frame = packet_frame
+                    yield record
+            except av.error.InvalidDataError as e:
+                print(f"Warning: Invalid data encountered at timestamp {packet.pts}. Skipping this packet.")
+                if last_iter_frame is not None:
+                    yield FrameRecord(float(start_at), last_iter_frame)
+                continue
 
 
 class FrameTs(t.NamedTuple):
