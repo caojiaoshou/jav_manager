@@ -27,6 +27,7 @@ class PreviewItem(BaseModel):
     age: float
     duration: float
     name: str
+    srt_ready:bool
 
     @field_validator('age')
     @classmethod
@@ -73,7 +74,8 @@ def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
                 quick_look_pid=quick_pid_value,
                 age=age_value,
                 duration=video_record.file_duration_in_second,
-                name=video_record.file_path.with_suffix('').name
+                name=video_record.file_path.with_suffix('').name,
+                srt_ready = dao.calculate_audio_progress_state(video_record)
             )
 
             res_ls.append(item)

@@ -522,14 +522,28 @@ def query_quick_look_by_pid(quick_look_pid: str) -> VideoQuickLooks:
         return rt
 
 
-def calculate_video_progress_state(video: VideoInfo) -> ProgressState:
-    states = video.face_state, video.body_part_state, video.scene_state, video.quick_look_state
+def _calculate_state(video, type_: t.Literal['audio', 'video']) -> ProgressState:
+    if type_ == 'audio':
+        states = video.vad_state, video.asr_state, video.translate_state
+    elif type_ == 'video':
+        states = video.face_state, video.body_part_state, video.scene_state, video.quick_look_state
+    else:
+        raise ValueError('type_ must be audio or video')
+
     if all(map(lambda x: x == ProgressState.NOT_STARTED, states)):
         return ProgressState.NOT_STARTED
     elif all(map(lambda x: x == ProgressState.COMPLETED, states)):
         return ProgressState.COMPLETED
     else:
         return ProgressState.IN_PROGRESS
+
+
+def calculate_video_progress_state(video: VideoInfo) -> ProgressState:
+    return _calculate_state(video, 'video')
+
+
+def calculate_audio_progress_state(video: VideoInfo) -> ProgressState:
+    return _calculate_state(video, 'audio')
 
 
 if __name__ == '__main__':
