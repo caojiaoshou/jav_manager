@@ -13,17 +13,10 @@ from src.file_index import VIDEO_FILE_FOR_TEST, TEMP_STORAGE
 _cuda_option = {'hwaccel': 'cuvid', 'hwaccel_output_format': 'cuda'}
 
 
-def insert_silence(samples, duration_in_seconds, sample_rate=16000):
-    """Insert silence into the audio samples."""
-    silence_length = int(duration_in_seconds * sample_rate)
-    silence = np.zeros(silence_length, dtype=np.float32)
-    return np.concatenate([samples, silence])
-
-
 def _create_silence(duration_in_seconds, sample_rate=16000):
     """Insert silence into the audio samples."""
     silence_length = int(duration_in_seconds * sample_rate)
-    silence = np.zeros(silence_length, dtype=np.float32)
+    silence = np.zeros((1, silence_length), dtype=np.float32)
     return silence
 
 
@@ -47,7 +40,7 @@ def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) 
                     array = frame[0].to_ndarray()
                     samples.append(array)
 
-            except av.error.InvalidDataError as e:
+            except (av.error.InvalidDataError, av.error.PermissionError) as e:
                 print(f"Warning: Invalid data encountered at timestamp {packet.pts}. Skipping this packet.")
                 if last_pts is not None:
                     # Calculate the time difference between the last valid PTS and the current packet's PTS
