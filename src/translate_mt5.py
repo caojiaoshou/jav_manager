@@ -1,10 +1,14 @@
 import gc
+import time
 import typing
 
 import torch
 from transformers import pipeline, Pipeline
 
 from src.file_index import MODEL_STORAGE
+from src.logger import configure_logger
+
+_logger = configure_logger('audio')
 
 _DOWNLOAD_DIR = (MODEL_STORAGE / 'transformer').absolute().__str__()
 
@@ -23,14 +27,22 @@ def translate_list(list_to_translate: typing.Iterable[str]) -> list[str]:
     :return:
     """
     pad_request = [f'<-ja2zh-> {s}' for s in list_to_translate]
+
+    start_at = time.time()
     pipe = pip_factory()
+    _logger.debug(f'load mt5 cost {time.time() - start_at:.2f}s')
+
     result_list = []
     # 不要用dataset的方式.数据量上去后实测会卡死!! 15.1GB VRAM + 94%GPU 已然冒烟
+
+    start_at = time.time()
     for text in pad_request:
         text = ''.join(pipe.tokenizer.tokenize(text)[:int(128 * 0.9)])
         result = pipe(text)
-        print(result)
         result_list.extend(result)
+    cost = time.time() - start_at
+    _logger.debug(
+        f'translate cost{cost:.2f}, len {len(result_list)}, mean cost:{cost / len(result_list):.2f}')
     del pipe
     gc.collect()
     torch.cuda.empty_cache()

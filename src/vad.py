@@ -1,10 +1,17 @@
+import time
+
 import numpy as np
 import torch
 from silero_vad import load_silero_vad, get_speech_timestamps
 
 from src.config import Middleware
+from src.logger import configure_logger
 
+_logger = configure_logger('audio')
+
+_model_loading_start_at = time.time()
 _VAD_MODEL = load_silero_vad()
+_logger.debug(f'silero_vad model loading time: {time.time() - _model_loading_start_at:0.2f}s')
 
 
 def create_vad(sample_array: np.ndarray) -> list[Middleware]:
