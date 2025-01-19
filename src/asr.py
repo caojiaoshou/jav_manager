@@ -8,6 +8,7 @@ import whisper
 from src.config import Middleware
 from src.file_index import MODEL_STORAGE
 from src.logger import configure_logger
+from src.vad import create_vad
 
 _logger = configure_logger('audio')
 
@@ -20,8 +21,15 @@ def create_transcribe(wav_array: np.ndarray, heuristic_cut: list[Middleware] | N
     :param heuristic_cut:
     :return:
     """
-    # print('call call call')
-    # traceback.print_stack()
+    # 添加非引导的情况
+    if heuristic_cut is None:
+        heuristic_cut = create_vad(wav_array)
+
+    # 对于AV.一些空的情况就不处理了
+    if not heuristic_cut:
+        _logger.debug('vad empty ')
+        return []
+
     load_start_at = time.time()
     asr_model = whisper.load_model('large-v3', download_root=MODEL_STORAGE.absolute().__str__())
     _logger.debug(f'asr model loading time: {time.time() - load_start_at:0.2f}s')

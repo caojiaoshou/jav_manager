@@ -26,6 +26,10 @@ def translate_list(list_to_translate: typing.Iterable[str]) -> list[str]:
     :param list_to_translate: 模型好像限制单词输入限制输入约为120token
     :return:
     """
+    if len(list_to_translate) == 0:
+        _logger.debug(f'nothing to translate')
+        return []
+
     pad_request = [f'<-ja2zh-> {s}' for s in list_to_translate]
 
     start_at = time.time()
