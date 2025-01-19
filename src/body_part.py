@@ -145,13 +145,16 @@ class BodyPartDetectionCollection:
         )
 
 
-nude_detector = NudeDetector()
-nude_detector.onnx_session.set_providers(['CUDAExecutionProvider'])
+@functools.lru_cache(1)
+def nude_detector_factory() -> NudeDetector:
+    nude_detector = NudeDetector()
+    nude_detector.onnx_session.set_providers(['CUDAExecutionProvider'])
+    return nude_detector
 
 
 def process_frame_for_detections(frame: np.ndarray) -> BodyPartDetectionCollection:
     _record = BodyPartDetectionCollection()
-    detect_result_list = nude_detector.detect(frame)
+    detect_result_list = nude_detector_factory().detect(frame)
     for detect_result in detect_result_list:
         detection = DetectionResult(detect_result['score'], tuple(detect_result['box']))
         match detect_result['class']:
@@ -203,17 +206,17 @@ def _test():
 
 def _test_cuda():
     test_set = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST, cuda=False))
-    print(f'默认 {nude_detector.onnx_session.get_providers()}')
-    nude_detector.onnx_session.set_providers(['CPUExecutionProvider'])
+    print(f'默认 {nude_detector_factory().onnx_session.get_providers()}')
+    nude_detector_factory().onnx_session.set_providers(['CPUExecutionProvider'])
     cpu_start_at = time.time()
     for i in test_set:
-        nude_detector.detect(i.bgr_array)
+        nude_detector_factory().detect(i.bgr_array)
     cpu_cost = time.time() - cpu_start_at
 
-    nude_detector.onnx_session.set_providers(['CUDAExecutionProvider'])
+    nude_detector_factory().onnx_session.set_providers(['CUDAExecutionProvider'])
     cuda_start_at = time.time()
     for i in test_set:
-        nude_detector.detect(i.bgr_array)
+        nude_detector_factory().detect(i.bgr_array)
     cuda_cost = time.time() - cuda_start_at
 
     print(f'count: {len(test_set)}, cpu: {cpu_cost:.2f}, cuda: {cuda_cost:.2f}')

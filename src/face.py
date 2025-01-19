@@ -1,4 +1,4 @@
-import pathlib
+import functools
 import time
 import typing as t
 
@@ -8,11 +8,15 @@ from insightface.app import FaceAnalysis
 
 from src.file_index import MODEL_STORAGE, VIDEO_FILE_FOR_TEST
 
-_MODEL_DIR = MODEL_STORAGE / 'insightface'
-_MODEL_DIR.mkdir(exist_ok=True)
-_FACE_ANALYSER = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider'],
-                              root=_MODEL_DIR.absolute().__str__())
-_FACE_ANALYSER.prepare(ctx_id=0, det_size=(640, 640))
+
+@functools.lru_cache(maxsize=1)
+def face_analysis_factory() -> FaceAnalysis:
+    model_dir = MODEL_STORAGE / 'insightface'
+    model_dir.mkdir(exist_ok=True)
+    face_analyser = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider'],
+                                 root=model_dir.absolute().__str__())
+    face_analyser.prepare(ctx_id=0, det_size=(640, 640))
+    return face_analyser
 
 
 class DetectedFace(t.NamedTuple):
@@ -85,8 +89,9 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
         raise FaceNotFoundError("Image sequence is empty")
 
     female_face_records = []
+    analyser = face_analysis_factory()
     for frame_index, frame_image in enumerate(image_sequence):
-        detected_faces = _FACE_ANALYSER.get(frame_image)
+        detected_faces = analyser.get(frame_image)
 
         detected_female_faces = [
             f for f in detected_faces
@@ -120,7 +125,7 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
     valid_mask = np.where(similarity_scores > similarity_scores.mean() - similarity_scores.std(), 1, 0)
     embedding_weights = final_confidences * valid_mask
 
-    embedding_weight_sum  = embedding_weights.sum()
+    embedding_weight_sum = embedding_weights.sum()
     if embedding_weight_sum <= 0:
         raise FaceNotFoundError()
     # 计算平均年龄
@@ -164,7 +169,7 @@ def _test_crop():
     from src.file_index import IMAGE_FILE_FOR_TEST
     img = cv2.imread(IMAGE_FILE_FOR_TEST.absolute().__str__())
 
-    face = DetectedFace.from_insightface_record(_FACE_ANALYSER.get(img)[0])
+    face = DetectedFace.from_insightface_record(face_analysis_factory().get(img)[0])
 
     crop_image = crop_and_rotate_face_into_square(img, face)
 
@@ -175,7 +180,7 @@ def _test_crop():
 def _test_detect():
     from src.loader import iter_keyframe_bgr24
     # keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
-    keyframe_records = list(iter_keyframe_bgr24(pathlib.Path(r'E:\L3\FC2 PPV 1422052 ※期間限定【個人】要介護の旦那を持つ爆乳妻が車内で他人棒に中出しされる.mp4')))
+    keyframe_records = list(iter_keyframe_bgr24(VIDEO_FILE_FOR_TEST))
     start_at = time.time()
     out = select_best_female_face([f.bgr_array for f in keyframe_records])
     cost = time.time() - start_at
