@@ -151,7 +151,7 @@ def _video_ts(body: VideoTsRequest) -> VideoTsResponse:
             SrtItem(
                 start_at=srt_ist.start_at,
                 end_at=srt_ist.end_at,
-                texts=srt_ist
+                texts=text_list
             )
         )
     srt_ls.sort(key=lambda x: x.start_at)
