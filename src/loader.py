@@ -40,7 +40,7 @@ def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) 
                     array = frame[0].to_ndarray()
                     samples.append(array)
 
-            except (av.error.InvalidDataError, av.error.PermissionError) as e:
+            except (av.error.InvalidDataError, av.error.PermissionError, ValueError) as e:
                 print(f"Warning: Invalid data encountered at timestamp {packet.pts}. Skipping this packet.")
                 if last_pts is not None:
                     # Calculate the time difference between the last valid PTS and the current packet's PTS
