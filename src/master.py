@@ -69,9 +69,9 @@ def prepare_videos():
 
 def handle_views():
     prepare_videos()
-    db_videos = dao.list_videos()
+    db_videos = sorted(dao.list_videos(), key=lambda x: x.file_create_at, reverse=True)
     _LOGGER.info(f'开始生成预览. 共 {len(db_videos)} 个视频')
-    for r in dao.list_videos():
+    for r in db_videos:
         video_progress_state_value = dao.calculate_video_progress_state(r)
         match video_progress_state_value:
             case dao.ProgressState.NOT_STARTED:
@@ -101,7 +101,7 @@ def handle_views():
 
 
 def handle_srt():
-    for video_ist in dao.list_videos():
+    for video_ist in sorted(dao.list_videos(), key=lambda x: x.file_create_at, reverse=True):
         video_state = dao.calculate_video_progress_state(video_ist)
         if video_state != dao.ProgressState.COMPLETED:
             continue
@@ -132,4 +132,5 @@ def list_finish_views() -> list[id]:
 
 
 if __name__ == '__main__':
-    handle_srt()
+    # handle_srt()
+    handle_views()
