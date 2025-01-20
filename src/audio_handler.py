@@ -16,8 +16,13 @@ _logger = configure_logger('audio')
 def audio_full_work(p_todo: pathlib.Path) -> list[Middleware]:
     # 文件IO
     io_start_at = time.time()
-    audio_array = get_audio_samples_as_float32_array(p_todo)
-    _logger.debug(f'io cost {time.time() - io_start_at:.2f}s')
+    try:
+        audio_array = get_audio_samples_as_float32_array(p_todo)
+    except ValueError:
+        _logger.error(f'{p_todo} is not a valid audio file')
+        return []
+    else:
+        _logger.debug(f'io cost {time.time() - io_start_at:.2f}s')
 
     # 使用vad启发有效片段
     vad_start_at = time.time()

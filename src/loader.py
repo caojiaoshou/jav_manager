@@ -49,8 +49,12 @@ def get_audio_samples_as_float32_array(file_path, sample_rate=16000, mono=True) 
                 continue
             finally:
                 last_pts = packet.pts
-    samples_np = np.hstack(samples).astype(np.float32)
-    return samples_np
+
+    if not samples:
+        raise ValueError("audio completely broken in the file.")
+    else:
+        samples_np = np.hstack(samples).astype(np.float32)
+        return samples_np
 
 
 class FrameRecord(t.NamedTuple):
