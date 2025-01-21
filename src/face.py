@@ -95,7 +95,7 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
 
         detected_female_faces = [
             f for f in detected_faces
-            if (f.sex == 'F') and (f.det_score > 0.6)
+            if (f.sex == 'F') and (f.det_score > 0.5)
         ]
         if detected_female_faces:
             female_face_records.append((frame_index, detected_female_faces[0]))

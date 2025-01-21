@@ -12,6 +12,8 @@ def write_image_to_file(path: Path, image: np.ndarray):
     :param image:
     :return:
     """
+    if not image.size:
+        return
     state, image_bytes = cv2.imencode(path.suffix, image)
     if not state:
         raise RuntimeError('Failed to encode image', path)
