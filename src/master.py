@@ -132,5 +132,5 @@ def list_finish_views() -> list[id]:
 
 
 if __name__ == '__main__':
-    handle_srt()
-    # handle_views()
+    # handle_srt()
+    handle_views()

@@ -115,6 +115,9 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     except FaceNotFoundError:
         _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
         _LOGGER.warning(f'未识别到女性面部 {p}')
+    except Exception as e:
+        _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
+        _LOGGER.warning(f'疑似内存不足错误 {p} {e}')
     # 处理身体部位
     body_parts = []
     for part in ['butt', 'breast', 'pussy', 'feet', 'bar']:
@@ -154,7 +157,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
 
 
 if __name__ == '__main__':
-    result = video_full_work(VIDEO_FILE_FOR_TEST)
+    result = video_full_work(pathlib.Path(r'E:\L6\FC2-PPV-1693696\FC2-PPV-1693696_1.mp4'))
 
     video_path = TEMP_STORAGE / VIDEO_FILE_FOR_TEST.with_suffix('.webm').name
     video_path.write_bytes(result.quick_look)
