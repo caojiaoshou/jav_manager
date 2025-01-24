@@ -45,12 +45,20 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
     original_key_frame_count = 0
     preview_start_at = -128  # 保留第一帧
     keyframe_record_list = []
+    to_pop_index = 0
     for keyframe_record in iter_keyframe_bgr24(p):
         original_key_frame_count += 1
         if keyframe_record.start_at > preview_start_at + 1.4:
             preview_start_at = keyframe_record.start_at
             # 4K爆内存
             keyframe_record_list.append(thumbnail_to_1080p(keyframe_record))
+            if len(keyframe_record_list) > 800:
+                keyframe_record_list.pop(to_pop_index)
+                _LOGGER.info(f'过长, 抽帧 index={to_pop_index}')
+                # 隔着抽帧而不是FIFO
+                to_pop_index += 1
+                if to_pop_index >= 800 - 1:
+                    to_pop_index = 0
     _LOGGER.debug(
         f'提取关键帧 用时 {time.time() - start_at:.2f}s, 找到 {original_key_frame_count} 帧,保留 {len(keyframe_record_list)} 帧')
 
@@ -157,7 +165,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
 
 
 if __name__ == '__main__':
-    result = video_full_work(pathlib.Path(r'E:\L6\FC2-PPV-1693696\FC2-PPV-1693696_1.mp4'))
+    result = video_full_work(pathlib.Path(r'D:\L\ofje-236\ofje-236-2.mp4'))
 
     video_path = TEMP_STORAGE / VIDEO_FILE_FOR_TEST.with_suffix('.webm').name
     video_path.write_bytes(result.quick_look)
