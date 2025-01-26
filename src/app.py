@@ -16,6 +16,38 @@ from src.utils import create_webp_b64
 _API_ROUTER = APIRouter()
 
 
+class ResponseSummary(BaseModel):
+    video_count: int
+    preview_count: int
+    srt_count: int
+    total_size_gb: float
+    total_duration_hour: float
+
+
+@_API_ROUTER.post('/summary', response_model=ResponseSummary)
+def _summary() -> ResponseSummary:
+    video_count = 0
+    preview_count = 0
+    srt_count = 0
+    total_size_bytes = 0
+    total_duration_second = 0
+    for info_record in dao.list_videos():
+        total_size_bytes += info_record.size
+        total_duration_second += info_record.file_duration_in_second
+        video_count += 1
+        if dao.calculate_video_progress_state(info_record) == dao.ProgressState.COMPLETED:
+            preview_count += 1
+        if dao.calculate_audio_progress_state(info_record) == dao.ProgressState.COMPLETED:
+            srt_count += 1
+    return ResponseSummary(
+        video_count=video_count,
+        preview_count=preview_count,
+        srt_count=srt_count,
+        total_size_gb=total_size_bytes / 1024 ** 3,
+        total_duration_hour=total_duration_second / 60 ** 2,
+    )
+
+
 class PreviewRequest(BaseModel):
     offset: int
     limit: int = Field(..., le=24, gt=0, description='limit of video to show')
