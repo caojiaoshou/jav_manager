@@ -1,3 +1,4 @@
+import datetime
 import mimetypes
 import os
 import typing as t
@@ -21,6 +22,7 @@ class PreviewRequest(BaseModel):
 
 
 class PreviewItem(BaseModel):
+    create_at: datetime.datetime
     video_pid: str
     face_pid: str
     quick_look_pid: str
@@ -75,7 +77,8 @@ def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
                 age=age_value,
                 duration=video_record.file_duration_in_second,
                 name=video_record.file_path.with_suffix('').name,
-                srt_ready=dao.calculate_audio_progress_state(video_record) == dao.ProgressState.COMPLETED
+                srt_ready=dao.calculate_audio_progress_state(video_record) == dao.ProgressState.COMPLETED,
+                create_at=video_record.file_create_at
             )
 
             res_ls.append(item)
@@ -106,6 +109,8 @@ class SrtItem(BaseModel):
 class VideoTsResponse(BaseModel):
     ts_list: list[VideoTsItem]
     srt_list: list[SrtItem]
+    video_name: str
+    video_create_at: datetime.datetime
 
 
 @_API_ROUTER.post('/video-ts', response_model=VideoTsResponse)
@@ -156,7 +161,8 @@ def _video_ts(body: VideoTsRequest) -> VideoTsResponse:
         )
     srt_ls.sort(key=lambda x: x.start_at)
 
-    return VideoTsResponse(ts_list=seek_ls, srt_list=srt_ls)
+    return VideoTsResponse(ts_list=seek_ls, srt_list=srt_ls, video_name=video_ist.file_path.with_suffix('').name,
+                           video_create_at=video_ist.file_create_at)
 
 
 @_API_ROUTER.get('/face-image/{path}', response_class=FileResponse)
