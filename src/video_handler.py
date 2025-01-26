@@ -165,7 +165,7 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
 
 
 if __name__ == '__main__':
-    result = video_full_work(pathlib.Path(r'D:\L\ofje-236\ofje-236-2.mp4'))
+    result = video_full_work(pathlib.Path(r'D:\L\SNIS-136\snis-136.mkv'))
 
     video_path = TEMP_STORAGE / VIDEO_FILE_FOR_TEST.with_suffix('.webm').name
     video_path.write_bytes(result.quick_look)
