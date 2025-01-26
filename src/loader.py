@@ -73,7 +73,11 @@ def _core_iter_packet(video_path: Path, cuda: bool = False) -> t.Generator[
         second_pass_dec = fractions.Fraction(0)
         # 有些视频packet里边没有保存duration.取平均值
         video_stream = container.streams.video[0]
-        avg_frame_duration = video_stream.time_base * video_stream.duration / video_stream.frames
+        # MKV没有duration有guessed_rate
+        if video_stream.duration is not None:
+            avg_frame_duration = video_stream.time_base * video_stream.duration / video_stream.frames
+        else:
+            avg_frame_duration = 1 / video_stream.guessed_rate
         for index, packet in enumerate(container.demux(video=0)):
             yield index, second_pass_dec, packet
             if packet.duration:
