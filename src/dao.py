@@ -185,9 +185,12 @@ def delete_video(video_id: int):
 def page_videos_with_state(
         limit: int | None,
         offset: int | None,
-        video_state: ProgressState | None
+        video_state: ProgressState | None,
+        name: str | None,
 ) -> list[VideoInfo]:
     filters = [VideoInfo.delete == False]
+    if name:
+        filters.append(VideoInfo.file_path.contains(name))
     match video_state:
         case ProgressState.IN_PROGRESS:
             filters.append(

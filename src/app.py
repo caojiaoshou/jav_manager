@@ -19,6 +19,7 @@ _API_ROUTER = APIRouter()
 class PreviewRequest(BaseModel):
     offset: int
     limit: int = Field(..., le=24, gt=0, description='limit of video to show')
+    filter: None | str = None
 
 
 class PreviewItem(BaseModel):
@@ -42,7 +43,7 @@ class PreviewItem(BaseModel):
 
 @_API_ROUTER.post('/list-preview', response_model=list[PreviewItem])
 def _list_preview(body: PreviewRequest) -> list[PreviewItem]:
-    finish_videos = dao.page_videos_with_state(body.limit, body.offset, dao.ProgressState.COMPLETED)
+    finish_videos = dao.page_videos_with_state(body.limit, body.offset, dao.ProgressState.COMPLETED, body.filter)
 
     if not finish_videos:
         return []
