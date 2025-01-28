@@ -3,7 +3,6 @@ import time
 import typing
 
 import torch
-from requests.exceptions import ConnectionError
 from transformers import pipeline, Pipeline
 
 from src.file_index import MODEL_STORAGE
@@ -24,7 +23,7 @@ def pip_factory() -> Pipeline:
     while retry_count <= 3:
         try:
             return pipeline(model="larryvrh/mt5-translation-ja_zh", model_kwargs={'cache_dir': _DOWNLOAD_DIR})
-        except ConnectionError as e:
+        except Exception as e:
             _logger.error(f'mt5 transformer retry {retry_count} times')
             last_error = e
             retry_count += 1
