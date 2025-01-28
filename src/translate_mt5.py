@@ -3,6 +3,7 @@ import time
 import typing
 
 import torch
+from requests.exceptions import ConnectionError
 from transformers import pipeline, Pipeline
 
 from src.file_index import MODEL_STORAGE
@@ -18,7 +19,17 @@ def pip_factory() -> Pipeline:
     由于硬件性能限制,模型不应该作为模块变量,这会极大的浪费内存,造成其它模块运行缓慢,只能牺牲IO
     :return:
     """
-    return pipeline(model="larryvrh/mt5-translation-ja_zh", model_kwargs={'cache_dir': _DOWNLOAD_DIR})
+    retry_count = 0
+    last_error = None
+    while retry_count <= 3:
+        try:
+            return pipeline(model="larryvrh/mt5-translation-ja_zh", model_kwargs={'cache_dir': _DOWNLOAD_DIR})
+        except ConnectionError as e:
+            _logger.error(f'mt5 transformer retry {retry_count} times')
+            last_error = e
+            retry_count += 1
+            time.sleep(2)
+    raise last_error
 
 
 def translate_list(list_to_translate: typing.Iterable[str]) -> list[str]:
