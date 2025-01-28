@@ -248,6 +248,12 @@ def query_video_by_pid(video_pid: str) -> VideoInfo:
     return rt
 
 
+def list_video_by_group(group_name: str) -> VideoInfo:
+    with _use_session() as session:
+        rt = session.exec(select(VideoInfo).filter(VideoInfo.group == group_name)).all()
+    return rt
+
+
 def list_videos() -> list[VideoInfo]:
     with _use_session() as session:
         rt = session.exec(select(VideoInfo).filter(VideoInfo.delete == False)).all()
@@ -327,6 +333,12 @@ def query_face_by_pid(face_pid: str) -> VideoFaces:
     with _use_session() as sas:
         rt = sas.exec(select(VideoFaces).filter(VideoFaces.pid == face_pid)).one()
         return rt
+
+
+def list_face() -> list[VideoFaces]:
+    with _use_session() as sas:
+        rt = sas.exec(select(VideoFaces)).all()
+    return rt
 
 
 class VideoSceneParams(t.NamedTuple):
