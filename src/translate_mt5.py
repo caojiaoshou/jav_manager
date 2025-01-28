@@ -24,7 +24,7 @@ def pip_factory() -> Pipeline:
     while retry_count <= 3:
         try:
             return pipeline(model="larryvrh/mt5-translation-ja_zh", model_kwargs={'cache_dir': _DOWNLOAD_DIR})
-        except RuntimeError as e:
+        except ConnectionError as e:
             _logger.error(f'mt5 transformer retry {retry_count} times')
             last_error = e
             retry_count += 1
