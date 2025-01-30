@@ -247,7 +247,7 @@ def _video_ts(body: VideoTsRequest) -> VideoTsResponse:
 
 
 @_API_ROUTER.get('/face-image/{path}', response_class=FileResponse)
-def _face_image(path: str = Path(...)) -> FileResponse:
+async def _face_image(path: str = Path(...)) -> FileResponse:
     record = dao.query_face_by_pid(path)
     if record:
         return FileResponse(record.sticker_path)
@@ -256,7 +256,7 @@ def _face_image(path: str = Path(...)) -> FileResponse:
 
 
 @_API_ROUTER.get('/quick-look/{path}', response_class=FileResponse)
-def _quick_look(path: str = Path(...)) -> FileResponse:
+async def _quick_look(path: str = Path(...)) -> FileResponse:
     record = dao.query_quick_look_by_pid(path)
     if record:
         return FileResponse(record.path)
@@ -265,7 +265,7 @@ def _quick_look(path: str = Path(...)) -> FileResponse:
 
 
 @_API_ROUTER.get('/video-full/{path}', response_class=FileResponse)
-def _video_full(path: str = Path(...)) -> FileResponse:
+async def _video_full(path: str = Path(...)) -> FileResponse:
     record = dao.query_video_by_pid(path)
     if record.file_path.exists():
         return FileResponse(record.file_path)
@@ -342,7 +342,7 @@ APP.include_router(_API_ROUTER, prefix='/api')
 
 
 @APP.get('/', response_class=FileResponse)
-def _index() -> FileResponse:
+async def _index() -> FileResponse:
     return FileResponse(GUI_STORAGE / 'index.html', headers={'Content-Type': 'text/html'})
 
 
