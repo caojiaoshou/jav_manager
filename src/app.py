@@ -6,11 +6,12 @@ from collections import defaultdict
 
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException, APIRouter, Path
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, Request, HTTPException, APIRouter, Path, Body
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field, field_validator
 
 import src.dao as dao
+import src.master as master
 from src.file_index import GUI_STORAGE
 from src.utils import create_webp_b64, calculate_cos_similarity
 
@@ -272,6 +273,68 @@ def _video_full(path: str = Path(...)) -> FileResponse:
         raise HTTPException(status_code=404)
 
 
+@_API_ROUTER.post('/archive-video', response_class=RedirectResponse)
+def _archive_video() -> None:
+    master.search_and_archive_video()
+    return RedirectResponse(url=_API_ROUTER.prefix + '/list_video')
+
+
+@_API_ROUTER.post('/create-preview')
+def _create_preview(video_pid: str = Body(...)) -> None:
+    video_info = dao.query_video_by_pid(video_pid)
+    if not video_info:
+        raise HTTPException(status_code=422)
+    elif dao.calculate_video_progress_state(video_info) == dao.ProgressState.NOT_STARTED:
+        master.create_video_previews(video_info)
+    else:
+        raise HTTPException(status_code=422)
+
+
+@_API_ROUTER.post('/create-srt')
+def _create_srt(video_pid: str = Body(...)) -> None:
+    video_info = dao.query_video_by_pid(video_pid)
+    if not video_info:
+        raise HTTPException(status_code=422)
+    elif dao.calculate_audio_progress_state(video_info) == dao.ProgressState.NOT_STARTED:
+        master.create_video_srt(video_info)
+    else:
+        raise HTTPException(status_code=422)
+
+
+class VideoControl(BaseModel):
+    video_pid: str
+    video_name: str
+    video_group: str
+    video_create_at: datetime.datetime
+    video_archive_at: datetime.datetime
+    video_size: float
+    video_duration: float
+    preview_state: dao.ProgressState
+    srt_state: dao.ProgressState
+
+
+@_API_ROUTER.post('/list-video', response_model=list[VideoControl])
+def _list_video() -> list[VideoControl]:
+    video_list = dao.list_videos()
+    res = []
+    for video_info in video_list:
+        res.append(
+            VideoControl(
+                video_pid=video_info.pid,
+                video_name=video_info.file_path.with_suffix('').name,
+                video_group=video_info.group,
+                video_create_at=video_info.file_create_at,
+                video_archive_at=video_info.record_add_at,
+                video_size=video_info.size,
+                video_duration=video_info.file_duration_in_second,
+                preview_state=dao.calculate_video_progress_state(video_info),
+                srt_state=dao.calculate_audio_progress_state(video_info)
+            )
+        )
+    res.sort(key=lambda x: x.video_archive_at, reverse=True)
+    return res
+
+
 APP = FastAPI()
 
 mimetypes.add_type('application/javascript', '.js')
@@ -301,7 +364,9 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         )
     elif exc.status_code == 404:
         return FileResponse(GUI_STORAGE / 'index.html')
+    else:
+        raise exc
 
 
 if __name__ == '__main__':
-    uvicorn.run(APP, host='0.0.0.0', port=8000)
+    uvicorn.run(APP, host='0.0.0.0', port=34567)
