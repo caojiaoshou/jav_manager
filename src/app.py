@@ -15,7 +15,7 @@ import src.master as master
 from src.file_index import GUI_STORAGE
 from src.utils import create_webp_b64, calculate_cos_similarity
 
-_API_ROUTER = APIRouter()
+_API_ROUTER = APIRouter(prefix='/api')
 
 
 class ResponseSummary(BaseModel):
@@ -276,7 +276,7 @@ async def _video_full(path: str = Path(...)) -> FileResponse:
 @_API_ROUTER.post('/archive-video', response_class=RedirectResponse)
 def _archive_video() -> None:
     master.search_and_archive_video()
-    return RedirectResponse(url=_API_ROUTER.prefix + '/list_video')
+    return RedirectResponse(url=_API_ROUTER.prefix + '/list-video')
 
 
 @_API_ROUTER.post('/create-preview')
@@ -338,7 +338,7 @@ def _list_video() -> list[VideoControl]:
 APP = FastAPI()
 
 mimetypes.add_type('application/javascript', '.js')
-APP.include_router(_API_ROUTER, prefix='/api')
+APP.include_router(_API_ROUTER)
 
 
 @APP.get('/', response_class=FileResponse)
