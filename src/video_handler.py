@@ -120,9 +120,9 @@ def video_full_work(p: pathlib.Path) -> VideoFullWorkResult:
         _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
         face = VideoFaceParams(best_female_face.face_serial, best_female_face.age, face_target_frame, face_crop_image)
         face_seq.append(face)
-    except FaceNotFoundError:
+    except FaceNotFoundError as e:
         _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
-        _LOGGER.warning(f'未识别到女性面部 {p}')
+        _LOGGER.warning(f'未识别到女性面部 {p}, 原因:{e.args}')
     except Exception as e:
         _LOGGER.debug(f'识别面部 用时 {time.time() - start_at:.2f}s')
         _LOGGER.warning(f'疑似内存不足错误 {p} {e}')

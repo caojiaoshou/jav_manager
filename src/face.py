@@ -87,24 +87,26 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
     poses = np.array([r[1].pose for r in female_face_records], dtype=np.float64)
 
     # 计算置信度
-    detection_confidences = _normalize_min_max(detection_stores)
+    detection_confidences_normalized = _normalize_min_max(detection_stores)
 
     pose_confidences = np.abs(poses)
     pose_confidences[:, 2] = pose_confidences[:, 2] * 0.5
     pose_confidences = np.prod(pose_confidences, axis=1) ** (1.0 / 3.0)
-    pose_confidences = _normalize_min_max(pose_confidences)
+    pose_confidences_normalized = 1-_normalize_min_max(pose_confidences)
 
-    final_confidences = detection_confidences - pose_confidences
+    final_confidences_normalized = _normalize_min_max(
+        (detection_confidences_normalized * pose_confidences_normalized)**1/2
+    )
 
     # 利用人脸向量排除特异点
     mean_embedding = np.mean(embeddings, axis=0)
     similarity_scores = calculate_cos_similarity(embeddings, mean_embedding)
     valid_mask = np.where(similarity_scores > similarity_scores.mean() - similarity_scores.std(), 1, 0)
-    embedding_weights = final_confidences * valid_mask
+    embedding_weights = final_confidences_normalized * valid_mask
 
     embedding_weight_sum = embedding_weights.sum()
     if embedding_weight_sum <= 0:
-        raise FaceNotFoundError()
+        raise FaceNotFoundError('embeddings_weight_problem')
     # 计算平均年龄
     average_age = (embedding_weights * ages).sum() / embedding_weight_sum
 
@@ -112,14 +114,14 @@ def select_best_female_face(image_sequence: t.Sequence[np.ndarray]) -> FaceDetec
     weighted_mean_embedding = (embeddings.T * embedding_weights).sum(axis=1) / embedding_weight_sum
 
     # 获取最佳人脸
-    sorted_indices = np.argsort(final_confidences)
+    sorted_indices = np.argsort(final_confidences_normalized)
     best_face_index = int(sorted_indices[-1])
     best_frame_index, best_face_record = female_face_records[best_face_index]
 
     # 返回结果
     best_face = DetectedFace.from_insightface_record(best_face_record)
     if np.isnan(average_age):
-        raise FaceNotFoundError()
+        raise FaceNotFoundError('age is nan')
     res = FaceDetectionResult(best=best_face, frame_index=best_frame_index, age=average_age,
                               face_serial=weighted_mean_embedding)
     return res
@@ -162,6 +164,7 @@ def _test_detect():
     out = select_best_female_face([f.bgr_array for f in keyframe_records])
     cost = time.time() - start_at
     print(f'frame_count: {len(keyframe_records)}, cost: {cost:.2f}, mean:{cost / len(keyframe_records):.2f}')
+    print(f'age {out.age}')
     cv2.imshow('', keyframe_records[out.frame_index].bgr_array)
     cv2.waitKey(0)
 
