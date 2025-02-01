@@ -11,7 +11,7 @@ from src.audio_handler import audio_full_work
 from src.file_index import search_local_videos
 from src.loader import get_video_duration
 from src.logger import configure_logger
-from src.video_handler import video_full_work
+from src.video_handler import video_full_work, face_work
 
 _execution_lock: threading.RLock = threading.RLock()
 
@@ -148,6 +148,21 @@ def _handle_srt_batched():
             continue
 
         create_video_srt(video_ist)
+
+
+def _dev_clear_face_records():
+    for video_info in dao.list_videos():
+        if video_info.face_state != dao.ProgressState.NOT_STARTED:
+            dao.delete_face(video_info.id)
+
+
+def _dev_repair_face_records():
+    for video_info in dao.list_videos():
+        if video_info.face_state == dao.ProgressState.NOT_STARTED:
+            start_at = time.time()
+            face_seq = face_work(video_info.file_path)
+            dao.update_face(video_info.id, face_seq)
+            _LOGGER.info(f'完成处理 {video_info.file_path} 用时 {time.time() - start_at:.2f}s')
 
 
 def _module_direct_call():
